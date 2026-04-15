@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion | TranspoBot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes textGlow {
+            0% { text-shadow: 0 0 5px #4f46e5, 0 0 10px #4f46e5; }
+            25% { text-shadow: 0 0 15px #7c3aed, 0 0 25px #4f46e5; }
+            50% { text-shadow: 0 0 20px #a78bfa, 0 0 35px #7c3aed; }
+            75% { text-shadow: 0 0 15px #7c3aed, 0 0 25px #4f46e5; }
+            100% { text-shadow: 0 0 5px #4f46e5, 0 0 10px #4f46e5; }
+        }
+        @keyframes borderPulse {
+            0%, 100% { border-color: rgba(79, 70, 229, 0.3); box-shadow: 0 0 10px rgba(79, 70, 229, 0.1); }
+            50% { border-color: rgba(124, 58, 237, 0.6); box-shadow: 0 0 25px rgba(124, 58, 237, 0.3); }
+        }
+        
+        .animate-fade-up { animation: fadeInUp 0.6s ease forwards; }
+        .float-icon { animation: float 5s ease-in-out infinite; }
+        .glow-text { animation: textGlow 3s ease-in-out infinite; }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            animation: borderPulse 3s infinite;
+        }
+        
+        .tab-active {
+            border-bottom: 2px solid #7c3aed;
+            color: #7c3aed;
+        }
+        
+        .input-glass {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            color: white;
+            transition: all 0.3s;
+        }
+        .input-glass:focus {
+            border-color: #7c3aed;
+            outline: none;
+            box-shadow: 0 0 15px rgba(124, 58, 237, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            transition: all 0.3s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
+        }
+        
+        .particle {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.4;
+            animation: float 8s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-end p-4 pr-20" style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?ixlib=rb-4.0.3&auto=format&fit=crop&w=1469&q=80'); background-size: cover; background-position: center; background-attachment: fixed;">
+
+    <div class="particle w-64 h-64 bg-indigo-500/20 rounded-full -top-20 -left-20" style="animation-duration: 12s;"></div>
+    <div class="particle w-96 h-96 bg-purple-500/10 rounded-full -bottom-40 right-40" style="animation-duration: 15s;"></div>
+    <div class="particle w-40 h-40 bg-cyan-500/10 rounded-full top-1/2 left-1/3" style="animation-duration: 10s;"></div>
+
+    <div class="float-icon absolute top-20 left-20 opacity-15 text-6xl text-indigo-400"><i class="fa-solid fa-bus"></i></div>
+    <div class="float-icon absolute bottom-20 left-40 opacity-15 text-5xl text-purple-400" style="animation-delay: 2s;"><i class="fa-solid fa-chart-line"></i></div>
+    <div class="float-icon absolute top-1/3 right-20 opacity-10 text-5xl text-cyan-400" style="animation-delay: 3s;"><i class="fa-solid fa-robot"></i></div>
+
+    <div class="max-w-md w-full animate-fade-up z-10 mr-0 lg:mr-20">
+        
+        <div class="text-center mb-8">
+            <div class="bg-gradient-to-br from-indigo-600 to-purple-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto shadow-2xl">
+                <i class="fa-solid fa-bus-simple text-white text-3xl"></i>
+            </div>
+            <h1 class="text-4xl font-bold text-white mt-4 glow-text">TranspoBot</h1>
+            <p class="text-indigo-300 text-sm mt-1">Gestion de transport par IA</p>
+        </div>
+
+        <div class="glass-card rounded-2xl p-8 shadow-2xl">
+            
+            <div class="flex border-b border-indigo-500/30 mb-6">
+                <button id="tab-login" onclick="showLoginTab()" class="flex-1 py-2 text-center font-medium text-white/70 tab-active transition-all">
+                    <i class="fa-solid fa-key mr-2"></i>Connexion
+                </button>
+                <button id="tab-register" onclick="showRegisterTab()" class="flex-1 py-2 text-center font-medium text-white/70 transition-all">
+                    <i class="fa-solid fa-user-plus mr-2"></i>Inscription
+                </button>
+            </div>
+
+            <div id="error-message" class="hidden bg-red-500/20 border border-red-500 text-red-300 px-4 py-2 rounded-xl text-sm mb-4"></div>
+            <div id="success-message" class="hidden bg-green-500/20 border border-green-500 text-green-300 px-4 py-2 rounded-xl text-sm mb-4"></div>
+
+            <div id="login-form" class="space-y-4">
+                <div class="relative">
+                    <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
+                    <input type="email" id="login-email" placeholder="Email" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+                </div>
+                <div class="relative">
+                    <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
+                    <input type="password" id="login-password" placeholder="Mot de passe" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+                </div>
+                
+                <div class="bg-slate-800/50 rounded-xl p-4 border border-indigo-500/20">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gradient-to-br from-indigo-600 to-purple-600 p-2 rounded-lg">
+                            <i class="fa-solid fa-robot text-white text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs text-white/70">Vérification humaine</p>
+                            <p class="text-[10px] text-white/40">Cliquez pour confirmer</p>
+                        </div>
+                        <input type="checkbox" id="login-captcha" class="w-5 h-5 rounded border-indigo-500 focus:ring-purple-500">
+                    </div>
+                </div>
+
+                <button onclick="login()" class="w-full btn-primary text-white py-3 rounded-xl font-medium shadow-lg mt-4">
+                    <i class="fa-solid fa-arrow-right-to-bracket mr-2"></i> Se connecter
+                </button>
+            </div>
+
+            <div id="register-form" class="space-y-4 hidden">
+                <div class="relative">
+                    <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
+                    <input type="text" id="register-name" placeholder="Nom complet" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+                </div>
+                <div class="relative">
+                    <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
+                    <input type="email" id="register-email" placeholder="Email" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+                </div>
+                <div class="relative">
+                    <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
+                    <input type="password" id="register-password" placeholder="Mot de passe" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+                </div>
+                <div class="relative">
+                    <i class="fa-solid fa-check-circle absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
+                    <input type="password" id="register-confirm-password" placeholder="Confirmer" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+                </div>
+                
+                <div class="bg-slate-800/50 rounded-xl p-4 border border-indigo-500/20">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gradient-to-br from-indigo-600 to-purple-600 p-2 rounded-lg">
+                            <i class="fa-solid fa-robot text-white text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs text-white/70">Vérification humaine</p>
+                            <p class="text-[10px] text-white/40">Cliquez pour confirmer</p>
+                        </div>
+                        <input type="checkbox" id="register-captcha" class="w-5 h-5 rounded border-indigo-500 focus:ring-purple-500">
+                    </div>
+                </div>
+
+                <button onclick="register()" class="w-full btn-primary text-white py-3 rounded-xl font-medium shadow-lg mt-4">
+                    <i class="fa-solid fa-user-plus mr-2"></i> S'inscrire
+                </button>
+            </div>
+
+            <div class="mt-4 text-center">
+                <button onclick="loginAsGuest()" class="text-indigo-300 text-sm hover:text-indigo-200 transition flex items-center justify-center gap-2 mx-auto">
+                    <i class="fa-solid fa-user-astronaut"></i> Continuer en mode invité
+                </button>
+            </div>
+
+            <p class="text-[10px] text-center text-white/30 mt-6 pt-4 border-t border-white/10">
+                ESP / UCAD - Licence 3 GLSi
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let users = JSON.parse(localStorage.getItem('transpobot_users') || '[{"fullname":"Admin ESP","email":"admin@esp.sn","password":"admin123"}]');
+        function saveUsers(u) { localStorage.setItem('transpobot_users', JSON.stringify(u)); }
+        function showError(msg) { let d=document.getElementById('error-message'); d.innerHTML='<i class="fa-solid fa-circle-exclamation mr-2"></i> '+msg; d.classList.remove('hidden'); setTimeout(()=>d.classList.add('hidden'),3000); }
+        function showSuccess(msg) { let d=document.getElementById('success-message'); d.innerHTML='<i class="fa-solid fa-check-circle mr-2"></i> '+msg; d.classList.remove('hidden'); setTimeout(()=>d.classList.add('hidden'),3000); }
+        function showLoginTab() { document.getElementById('login-form').classList.remove('hidden'); document.getElementById('register-form').classList.add('hidden'); document.getElementById('tab-login').classList.add('tab-active'); document.getElementById('tab-register').classList.remove('tab-active'); }
+        function showRegisterTab() { document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden'); document.getElementById('tab-register').classList.add('tab-active'); document.getElementById('tab-login').classList.remove('tab-active'); }
+        
+        function login() { 
+            let email=document.getElementById('login-email').value.trim(); 
+            let pwd=document.getElementById('login-password').value; 
+            let captcha=document.getElementById('login-captcha').checked; 
+            if(!email||!pwd) return showError("Remplissez tous les champs"); 
+            if(!captcha) return showError("Confirmez que vous n'êtes pas un robot"); 
+            let user=users.find(u=>u.email===email&&u.password===pwd); 
+            if(user){ 
+                // Sauvegarder avec l'indicateur justLoggedIn pour afficher le message de bienvenue
+                localStorage.setItem('transpobot_user',JSON.stringify({
+                    name:user.fullname, 
+                    email:user.email, 
+                    loggedIn:true,
+                    justLoggedIn: true
+                })); 
+                window.location.href='/'; 
+            } else showError("Email ou mot de passe incorrect"); 
+        }
+        
+        function register() { 
+            let name=document.getElementById('register-name').value.trim(); 
+            let email=document.getElementById('register-email').value.trim(); 
+            let pwd=document.getElementById('register-password').value; 
+            let confirm=document.getElementById('register-confirm-password').value; 
+            let captcha=document.getElementById('register-captcha').checked; 
+            if(!name||!email||!pwd||!confirm) return showError("Remplissez tous les champs"); 
+            if(pwd!==confirm) return showError("Mots de passe différents"); 
+            if(pwd.length<4) return showError("4 caractères minimum"); 
+            if(!captcha) return showError("Confirmez le captcha"); 
+            if(users.find(u=>u.email===email)) return showError("Email déjà utilisé"); 
+            users.push({fullname:name,email:email,password:pwd}); 
+            saveUsers(users); 
+            showSuccess("Inscription réussie ! Connectez-vous"); 
+            showLoginTab(); 
+            document.getElementById('login-email').value=email; 
+        }
+        
+        function loginAsGuest() { 
+            localStorage.setItem('transpobot_user',JSON.stringify({
+                name:"Invité",
+                email:"guest@transpobot.sn",
+                loggedIn:true,
+                justLoggedIn: true
+            })); 
+            window.location.href='/'; 
+        }
+        
+        if(localStorage.getItem('transpobot_user')) {
+            let user = JSON.parse(localStorage.getItem('transpobot_user'));
+            if(user.loggedIn) window.location.href='/';
+        }
+    </script>
+</body>
+</html>
