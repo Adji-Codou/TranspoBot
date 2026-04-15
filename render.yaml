@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: transpobot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        value: 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

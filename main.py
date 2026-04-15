@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-import mysql.connector
+import psycopg2
 import os
 import re
 import json
@@ -39,9 +39,9 @@ else:
     print("❌ GROQ_API_KEY non trouvée")
 
 def get_db():
-    return mysql.connector.connect(
+    return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", 3306)),
+        port=int(os.getenv("DB_PORT", 5432)),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "transpobot")
