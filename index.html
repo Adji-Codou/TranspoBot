@@ -98,12 +98,16 @@
         }
         .listening { animation: pulse 1s infinite; background-color: #ef4444 !important; }
         
-        /* ========== STYLES SIDEBAR CORRIGÉS ========== */
+        /* ========== STYLES SIDEBAR - MENU TOUJOURS VISIBLE ========== */
         .sidebar-transition {
             transition: transform 0.3s ease-in-out;
         }
         
-        /* Sur mobile, la sidebar est cachée par défaut */
+        /* Bouton menu (3 traits) - TOUJOURS VISIBLE sur mobile */
+        #menu-btn {
+            display: none;
+        }
+        
         @media (max-width: 768px) {
             #sidebar {
                 transform: translateX(-100%);
@@ -127,6 +131,11 @@
                 padding: 10px 12px;
                 border-radius: 12px;
                 cursor: pointer;
+                border: none;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            #menu-btn:hover {
+                background-color: #6366f1;
             }
             #sidebar-overlay {
                 position: fixed;
@@ -235,7 +244,7 @@
         <main id="main-content" class="flex-1 overflow-y-auto bg-slate-50 transition-all duration-300 w-full">
             <div id="content-container" class="max-w-7xl mx-auto px-6 py-7 transition-all duration-300">
                 
-                <!-- BOUTON MENU (3 TRAITS) - TOUJOURS VISIBLE SUR MOBILE -->
+                <!-- BOUTON MENU (3 TRAITS) - NE DISPARAÎT JAMAIS -->
                 <button id="menu-btn" onclick="toggleSidebar()">
                     <i class="fa-solid fa-bars text-lg"></i>
                 </button>
@@ -381,7 +390,7 @@
         const API_URL = 'https://transpobot-fck0.onrender.com';
         console.log('🔗 API connectée à:', API_URL);
         
-        // ========== SIDEBAR (CORRIGÉE) ==========
+        // ========== SIDEBAR - MENU TOUJOURS DISPONIBLE ==========
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
