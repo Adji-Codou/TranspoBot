@@ -104,9 +104,32 @@
         }
         
         /* Bouton menu (3 traits) - TOUJOURS VISIBLE sur mobile */
-        #menu-btn {
-            display: none;
-        }
+        /* ========== BOUTON MENU (3 TRAITS) - SOLUTION SIMPLE ========== */
+#menu-btn {
+    display: flex !important;
+    position: fixed !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 9999 !important;
+    background-color: #4f46e5 !important;
+    color: white !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    cursor: pointer !important;
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+}
+
+#menu-btn i {
+    font-size: 18px !important;
+}
+
+/* Sur desktop, on le cache */
+@media (min-width: 769px) {
+    #menu-btn {
+        display: none !important;
+    }
+}
         
         @media (max-width: 768px) {
             #sidebar {
