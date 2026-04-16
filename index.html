@@ -383,9 +383,20 @@
         }
         
         function logout() { 
-            localStorage.removeItem('transpobot_user'); 
-            window.location.href = '/login'; 
-        }
+    // Supprimer toutes les données utilisateur
+    localStorage.removeItem('transpobot_user');
+    localStorage.removeItem('transpobot_conversations');
+    
+    // Rediriger vers login.html
+    window.location.href = '/login';
+    window.location.replace('/login'); // Alternative plus forte
+}
+
+function confirmLogout() {
+    if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+        logout();
+    }
+}
         
         function confirmLogout() {
             if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {

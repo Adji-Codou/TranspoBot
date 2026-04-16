@@ -36,34 +36,137 @@
         </div>
         <div id="error-message" class="hidden bg-red-500/20 border border-red-500 text-red-300 px-4 py-2 rounded-xl text-sm mb-4"></div>
         <div id="success-message" class="hidden bg-green-500/20 border border-green-500 text-green-300 px-4 py-2 rounded-xl text-sm mb-4"></div>
+        
+        <!-- FORMULAIRE CONNEXION -->
         <div id="login-form" class="space-y-4">
             <input type="email" id="login-email" placeholder="Email" class="w-full input-glass rounded-xl px-4 py-3 text-sm">
             <input type="password" id="login-password" placeholder="Mot de passe" class="w-full input-glass rounded-xl px-4 py-3 text-sm">
-            <div class="bg-white/5 rounded-xl p-4 border border-white/10"><div class="flex items-center gap-3"><i class="fa-solid fa-robot text-blue-400"></i><div class="flex-1"><p class="text-xs text-white/60">Vérification humaine</p></div><input type="checkbox" id="login-captcha" class="w-5 h-5 rounded"></div></div>
+            <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-robot text-blue-400"></i>
+                    <div class="flex-1"><p class="text-xs text-white/60">Vérification humaine</p></div>
+                    <input type="checkbox" id="login-captcha" class="w-5 h-5 rounded">
+                </div>
+            </div>
             <button onclick="login()" class="w-full btn-glass text-white py-3 rounded-xl font-medium shadow-md">Se connecter</button>
         </div>
+        
+        <!-- FORMULAIRE INSCRIPTION -->
         <div id="register-form" class="space-y-4 hidden">
             <input type="text" id="register-name" placeholder="Nom complet" class="w-full input-glass rounded-xl px-4 py-3 text-sm">
             <input type="email" id="register-email" placeholder="Email" class="w-full input-glass rounded-xl px-4 py-3 text-sm">
             <input type="password" id="register-password" placeholder="Mot de passe" class="w-full input-glass rounded-xl px-4 py-3 text-sm">
             <input type="password" id="register-confirm-password" placeholder="Confirmer" class="w-full input-glass rounded-xl px-4 py-3 text-sm">
-            <div class="bg-white/5 rounded-xl p-4 border border-white/10"><div class="flex items-center gap-3"><i class="fa-solid fa-robot text-blue-400"></i><div class="flex-1"><p class="text-xs text-white/60">Vérification humaine</p></div><input type="checkbox" id="register-captcha" class="w-5 h-5 rounded"></div></div>
+            <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-robot text-blue-400"></i>
+                    <div class="flex-1"><p class="text-xs text-white/60">Vérification humaine</p></div>
+                    <input type="checkbox" id="register-captcha" class="w-5 h-5 rounded">
+                </div>
+            </div>
             <button onclick="register()" class="w-full btn-glass text-white py-3 rounded-xl font-medium shadow-md">S'inscrire</button>
         </div>
-        <div class="mt-4 text-center"><button onclick="loginAsGuest()" class="text-blue-300 text-sm hover:text-blue-200 transition">Mode invité</button></div>
+        
+        <div class="mt-4 text-center">
+            <button onclick="loginAsGuest()" class="text-blue-300 text-sm hover:text-blue-200 transition">Mode invité</button>
+        </div>
         <p class="text-[10px] text-center text-white/30 mt-6">ESP / UCAD - Licence 3 GLSi</p>
     </div>
+    
     <script>
+        // Utilisateurs par défaut
         let users = JSON.parse(localStorage.getItem('transpobot_users') || '[{"fullname":"Admin ESP","email":"admin@esp.sn","password":"admin123"}]');
+        
         function saveUsers(u) { localStorage.setItem('transpobot_users', JSON.stringify(u)); }
-        function showError(msg) { let d=document.getElementById('error-message'); d.innerHTML='<i class="fa-solid fa-circle-exclamation mr-2"></i> '+msg; d.classList.remove('hidden'); setTimeout(()=>d.classList.add('hidden'),3000); }
-        function showSuccess(msg) { let d=document.getElementById('success-message'); d.innerHTML='<i class="fa-solid fa-check-circle mr-2"></i> '+msg; d.classList.remove('hidden'); setTimeout(()=>d.classList.add('hidden'),3000); }
-        function showLoginTab() { document.getElementById('login-form').classList.remove('hidden'); document.getElementById('register-form').classList.add('hidden'); document.getElementById('tab-login').classList.add('tab-active'); document.getElementById('tab-register').classList.remove('tab-active'); }
-        function showRegisterTab() { document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden'); document.getElementById('tab-register').classList.add('tab-active'); document.getElementById('tab-login').classList.remove('tab-active'); }
-        function login() { let email=document.getElementById('login-email').value.trim(), pwd=document.getElementById('login-password').value, captcha=document.getElementById('login-captcha').checked; if(!email||!pwd) return showError("Remplissez tous les champs"); if(!captcha) return showError("Confirmez que vous n'êtes pas un robot"); let user=users.find(u=>u.email===email&&u.password===pwd); if(user){ localStorage.setItem('transpobot_user',JSON.stringify({name:user.fullname,email:user.email,loggedIn:true,justLoggedIn:true})); window.location.href='/'; } else showError("Email ou mot de passe incorrect"); }
-        function register() { let name=document.getElementById('register-name').value.trim(), email=document.getElementById('register-email').value.trim(), pwd=document.getElementById('register-password').value, confirm=document.getElementById('register-confirm-password').value, captcha=document.getElementById('register-captcha').checked; if(!name||!email||!pwd||!confirm) return showError("Remplissez tous les champs"); if(pwd!==confirm) return showError("Mots de passe différents"); if(pwd.length<4) return showError("4 caractères minimum"); if(!captcha) return showError("Confirmez le captcha"); if(users.find(u=>u.email===email)) return showError("Email déjà utilisé"); users.push({fullname:name,email:email,password:pwd}); saveUsers(users); showSuccess("Inscription réussie ! Connectez-vous"); showLoginTab(); document.getElementById('login-email').value=email; }
-        function loginAsGuest() { localStorage.setItem('transpobot_user',JSON.stringify({name:"Invité",email:"guest@transpobot.sn",loggedIn:true,justLoggedIn:true})); window.location.href='/'; }
-        if(localStorage.getItem('transpobot_user')) window.location.href='/';
+        
+        function showError(msg) { 
+            let d = document.getElementById('error-message'); 
+            d.innerHTML = '<i class="fa-solid fa-circle-exclamation mr-2"></i> ' + msg; 
+            d.classList.remove('hidden'); 
+            setTimeout(() => d.classList.add('hidden'), 3000); 
+        }
+        
+        function showSuccess(msg) { 
+            let d = document.getElementById('success-message'); 
+            d.innerHTML = '<i class="fa-solid fa-check-circle mr-2"></i> ' + msg; 
+            d.classList.remove('hidden'); 
+            setTimeout(() => d.classList.add('hidden'), 3000); 
+        }
+        
+        function showLoginTab() { 
+            document.getElementById('login-form').classList.remove('hidden'); 
+            document.getElementById('register-form').classList.add('hidden'); 
+            document.getElementById('tab-login').classList.add('tab-active'); 
+            document.getElementById('tab-register').classList.remove('tab-active'); 
+        }
+        
+        function showRegisterTab() { 
+            document.getElementById('login-form').classList.add('hidden'); 
+            document.getElementById('register-form').classList.remove('hidden'); 
+            document.getElementById('tab-register').classList.add('tab-active'); 
+            document.getElementById('tab-login').classList.remove('tab-active'); 
+        }
+        
+        function login() { 
+            let email = document.getElementById('login-email').value.trim(); 
+            let pwd = document.getElementById('login-password').value; 
+            let captcha = document.getElementById('login-captcha').checked; 
+            
+            if (!email || !pwd) return showError("Remplissez tous les champs"); 
+            if (!captcha) return showError("Confirmez que vous n'êtes pas un robot"); 
+            
+            let user = users.find(u => u.email === email && u.password === pwd); 
+            
+            if (user) { 
+                localStorage.setItem('transpobot_user', JSON.stringify({
+                    name: user.fullname, 
+                    email: user.email, 
+                    loggedIn: true,
+                    justLoggedIn: true
+                })); 
+                window.location.href = '/'; 
+            } else { 
+                showError("Email ou mot de passe incorrect"); 
+            } 
+        }
+        
+        function register() { 
+            let name = document.getElementById('register-name').value.trim(); 
+            let email = document.getElementById('register-email').value.trim(); 
+            let pwd = document.getElementById('register-password').value; 
+            let confirm = document.getElementById('register-confirm-password').value; 
+            let captcha = document.getElementById('register-captcha').checked; 
+            
+            if (!name || !email || !pwd || !confirm) return showError("Remplissez tous les champs"); 
+            if (pwd !== confirm) return showError("Mots de passe différents"); 
+            if (pwd.length < 4) return showError("4 caractères minimum"); 
+            if (!captcha) return showError("Confirmez le captcha"); 
+            if (users.find(u => u.email === email)) return showError("Email déjà utilisé"); 
+            
+            users.push({ fullname: name, email: email, password: pwd }); 
+            saveUsers(users); 
+            showSuccess("Inscription réussie ! Connectez-vous"); 
+            showLoginTab(); 
+            document.getElementById('login-email').value = email; 
+        }
+        
+        function loginAsGuest() { 
+            localStorage.setItem('transpobot_user', JSON.stringify({
+                name: "Invité", 
+                email: "guest@transpobot.sn", 
+                loggedIn: true,
+                justLoggedIn: true
+            })); 
+            window.location.href = '/'; 
+        }
+        
+        // Si déjà connecté, rediriger vers l'accueil
+        if (localStorage.getItem('transpobot_user')) {
+            try {
+                const user = JSON.parse(localStorage.getItem('transpobot_user'));
+                if (user.loggedIn) window.location.href = '/';
+            } catch(e) {}
+        }
     </script>
 </body>
 </html>
