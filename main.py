@@ -1,5 +1,6 @@
 """
-TranspoBot - Version Finale pour PostgreSQL (Render)
+TranspoBot - Version PostgreSQL avec IA intelligente
+Répond à toutes les questions et génère du SQL dynamiquement
 """
 
 from fastapi import FastAPI
@@ -41,19 +42,17 @@ else:
 
 
 def get_db():
-    # Récupère l'URL complète de Render, sinon utilise les paramètres locaux par défaut
     db_url = os.getenv("DATABASE_URL")
     if db_url:
         return psycopg2.connect(db_url)
-    
-    # Configuration de secours pour le local
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
         port=int(os.getenv("DB_PORT", 5432)),
-        user=os.getenv("DB_USER", "root"),
+        user=os.getenv("DB_USER", "postgres"),
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "transpobot")
     )
+
 
 # ============ API KPIs ============
 
@@ -65,6 +64,7 @@ async def login_page():
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>login.html non trouvé</h1>")
 
+
 @app.get("/dashboard/kpis")
 def get_kpis():
     conn = get_db()
@@ -72,8 +72,6 @@ def get_kpis():
     try:
         cursor.execute("SELECT COUNT(*) as vehicules_actifs FROM vehicules WHERE statut='actif'")
         v = cursor.fetchone()
-        
-        # ✅ CORRIGÉ: NOW() → CURRENT_TIMESTAMP
         cursor.execute("""
             SELECT COALESCE(SUM(recette),0) as recettes_mois 
             FROM trajets 
@@ -82,13 +80,10 @@ def get_kpis():
             AND statut='termine'
         """)
         r = cursor.fetchone()
-        
         cursor.execute("SELECT COUNT(*) as incidents_non_resolus FROM incidents WHERE resolu=0")
         i = cursor.fetchone()
-        
         cursor.execute("SELECT COUNT(*) as trajets_en_cours FROM trajets WHERE statut='en_cours'")
         t = cursor.fetchone()
-        
         return {
             "vehicules_actifs": v['vehicules_actifs'] if v else 0,
             "recettes_mois": float(r['recettes_mois']) if r else 0,
@@ -96,13 +91,11 @@ def get_kpis():
             "trajets_en_cours": t['trajets_en_cours'] if t else 0
         }
     except Exception as e:
-        print(f"Erreur KPIs: {e}")
         return {"error": str(e)}
     finally:
         cursor.close()
         conn.close()
 
-# ============ GRAPHIQUE ============
 
 @app.get("/dashboard/trajets-chart")
 def get_trajets_chart():
@@ -130,19 +123,23 @@ def get_trajets_chart():
                     recettes[jour_index] = float(r['recettes'] or 0)
         return {"labels": [jours[i] for i in range(7)], "trajets": trajets, "recettes": recettes}
     except Exception as e:
-        print(f"Erreur graphique: {e}")
         return {"labels": ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"], "trajets": [0]*7, "recettes": [0]*7}
     finally:
         cursor.close()
         conn.close()
 
-# ============ CHATBOT ============
+
+# ============ CHATBOT INTELLIGENT ============
+
 class ChatRequest(BaseModel):
     question: str
 
+
 def execute_sql(sql: str):
+    """Exécute une requête SQL et retourne les résultats"""
     sql_clean = re.sub(r'```sql\n?|```\n?', '', sql.strip())
-    sql_clean = sql_clean.replace('\n', ' ').replace('\r', '')
+    sql_clean = sql_clean.replace('\n', ' ').replace('\r', ' ')
+    sql_clean = ' '.join(sql_clean.split())
     
     # Conversion MySQL -> PostgreSQL
     sql_clean = sql_clean.replace('WEEKDAY(', 'EXTRACT(DOW FROM ')
@@ -150,9 +147,22 @@ def execute_sql(sql: str):
     sql_clean = sql_clean.replace('YEAR(', 'EXTRACT(YEAR FROM ')
     sql_clean = sql_clean.replace('NOW()', 'CURRENT_TIMESTAMP')
     sql_clean = sql_clean.replace('CURDATE()', 'CURRENT_DATE')
+    sql_clean = sql_clean.replace('DATE_SUB(NOW(), INTERVAL 7 DAY)', "CURRENT_TIMESTAMP - INTERVAL '7 days'")
     
     if not sql_clean.upper().startswith("SELECT"):
-        return None, "SELECT uniquement"
+        return None, "Seules les requêtes SELECT sont autorisées"
+    
+    # Vérifier que la requête interroge une vraie table
+    tables_valides = ['chauffeurs', 'vehicules', 'trajets', 'incidents', 'lignes', 'tarifs']
+    has_table = False
+    sql_upper = sql_clean.upper()
+    for table in tables_valides:
+        if f" {table.upper()} " in f" {sql_upper} " or sql_upper.endswith(f" {table.upper()}"):
+            has_table = True
+            break
+    if not has_table:
+        return None, "La requête doit interroger une table existante"
+    
     try:
         conn = get_db()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -164,34 +174,60 @@ def execute_sql(sql: str):
     except Exception as e:
         return None, str(e)
 
-# PROMPT SYSTÈME
-SYSTEM_PROMPT = """
-Tu es un expert SQL. Voici le SCHEMA EXACT:
 
-trajets: id, date_heure_depart, recette, statut
-chauffeurs: id, nom, prenom, statut
-vehicules: id, immatriculation, marque, modele, statut
-incidents: id, trajet_id, type_incident, resolu
+# PROMPT SYSTÈME INTELLIGENT
+SYSTEM_PROMPT = """Tu es un expert SQL pour PostgreSQL spécialisé dans la gestion de transport.
 
-VALEURS EXACTES:
-- statut vehicules: 'actif', 'en_maintenance', 'hors_service'
-- statut chauffeurs: 'actif', 'en_conge', 'suspendu'
-- statut trajets: 'planifie', 'en_cours', 'termine', 'annule'
+Tu as accès aux tables suivantes:
 
-JOURS: lundi=0, mardi=1, mercredi=2, jeudi=3, vendredi=4, samedi=5, dimanche=6
+**Table chauffeurs** (id, nom, prenom, telephone, statut)
+- statut: 'actif', 'en_conge', 'suspendu'
+
+**Table vehicules** (id, immatriculation, marque, modele, statut, kilometrage)
+- statut: 'actif', 'en_maintenance', 'hors_service'
+
+**Table trajets** (id, vehicule_id, chauffeur_id, ligne_id, date_heure_depart, nb_passagers, recette, statut)
+- statut: 'planifie', 'en_cours', 'termine', 'annule'
+
+**Table incidents** (id, trajet_id, type_incident, description, date_incident, gravite, resolu)
+- resolu: 0 = non résolu, 1 = résolu
+
+**Table lignes** (id, code_ligne, nom, point_depart, point_arrivee)
+
+**Table tarifs** (id, ligne_id, type_voyageur, prix)
+
+RÈGLES IMPORTANTES:
+1. Pour TOUTE question, tu DOIS générer une requête SQL qui interroge les tables
+2. Utilise les fonctions PostgreSQL: EXTRACT(DOW FROM date) pour les jours, EXTRACT(MONTH FROM date) pour les mois
+3. Les jours: lundi=0, mardi=1, mercredi=2, jeudi=3, vendredi=4, samedi=5, dimanche=6
+4. Pour les questions sur "cette semaine", utilise: date_heure_depart >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+5. Pour "ce mois-ci", utilise: EXTRACT(MONTH FROM date)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP)
+6. Pour les salutations (bonjour, merci), réponds directement sans SQL
 
 EXEMPLES:
-Question: "chiffre d'affaires du mois"
-SQL: SELECT SUM(recette) FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_DATE) AND statut='termine'
 
-Question: "nombre de trajets le lundi"
-SQL: SELECT COUNT(*) FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart)=0
+Question: "bonjour"
+{"sql": "", "natural": "👋 Bonjour ! Je suis TranspoBot. Posez-moi vos questions sur les véhicules, chauffeurs, trajets, incidents ou lignes."}
 
-Question: "quel chauffeur a le plus d'incidents"
-SQL: SELECT c.nom, c.prenom, COUNT(i.id) as nb FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id GROUP BY c.id ORDER BY nb DESC LIMIT 1
+Question: "Combien de trajets ont ete effectues cette semaine ?"
+{"sql": "SELECT COUNT(*) as total FROM trajets WHERE date_heure_depart >= CURRENT_TIMESTAMP - INTERVAL '7 days' AND statut='termine'", "natural": ""}
 
-Réponds UNIQUEMENT au format JSON: {"sql": "requete", "natural": "reponse"}
+Question: "Quel chauffeur a le plus d incidents ce mois-ci ?"
+{"sql": "SELECT c.nom, c.prenom, COUNT(i.id) as nb_incidents FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id WHERE EXTRACT(MONTH FROM i.date_incident)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) GROUP BY c.id, c.nom, c.prenom ORDER BY nb_incidents DESC LIMIT 1", "natural": ""}
+
+Question: "Quels vehicules necessitent une maintenance ?"
+{"sql": "SELECT immatriculation, marque, modele, statut, kilometrage FROM vehicules WHERE statut='en_maintenance'", "natural": ""}
+
+Question: "Liste des chauffeurs actifs"
+{"sql": "SELECT nom, prenom, telephone FROM chauffeurs WHERE statut='actif'", "natural": ""}
+
+Question: "Quel est le chiffre d'affaires du mois ?"
+{"sql": "SELECT COALESCE(SUM(recette),0) as total FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) AND statut='termine'", "natural": ""}
+
+Ne réponds JAMAIS par une liste de questions. Génère TOUJOURS une requête SQL adaptée.
+Réponds UNIQUEMENT au format JSON: {"sql": "requete_sql", "natural": "reponse_naturelle"}
 """
+
 
 @app.post("/chat")
 def chat(request: ChatRequest):
@@ -200,12 +236,12 @@ def chat(request: ChatRequest):
     
     # ========== TRAITEMENT DES SALUTATIONS ==========
     salutations = ["bonjour", "salut", "coucou", "hello", "hi", "hey", "ça va", "comment ça va", "bienvenue"]
-    remerciements = ["merci", "thanks", "thank you", "bravo"]
+    remerciements = ["merci", "thanks", "thank you", "bravo", "merci beaucoup"]
     
     for mot in salutations:
         if mot in q:
             return {
-                "natural_response": "👋 Bonjour ! Je suis TranspoBot, votre assistant IA pour la gestion de transport.\n\n❓ Je peux répondre à des questions comme :\n• Combien de véhicules sont actifs ?\n• Quel est le chiffre d'affaires du mois ?\n• Liste des chauffeurs\n• Véhicules en maintenance\n• Chauffeur avec le plus d'incidents\n\nPosez-moi votre question !",
+                "natural_response": "👋 Bonjour ! Je suis TranspoBot, votre assistant IA pour la gestion de transport.\n\nPosez-moi toutes vos questions sur :\n• Les véhicules (actifs, en maintenance, kilométrage)\n• Les chauffeurs (performances, incidents)\n• Les trajets (nombre, recettes, par jour)\n• Les incidents (par type, par chauffeur)\n• Les lignes et tarifs\n\nJe traduirai votre question en SQL et vous afficherai les résultats sous forme de tableau.",
                 "sql": None,
                 "results": []
             }
@@ -213,20 +249,41 @@ def chat(request: ChatRequest):
     for mot in remerciements:
         if mot in q:
             return {
-                "natural_response": "🤖 Avec plaisir ! N'hésitez pas si vous avez d'autres questions sur vos données de transport.",
+                "natural_response": "🤖 Avec plaisir ! Je reste à votre disposition pour toute question sur vos données de transport.",
                 "sql": None,
                 "results": []
             }
     
-    # ========== TRAITEMENT DIRECT PRIORITAIRE ==========
+    # ========== CAS SPÉCIAUX TRAITÉS DIRECTEMENT ==========
     
-    # 1. Chiffre d'affaires
-    if "chiffre d affaires" in q or "ca du mois" in q:
+    # Véhicules en maintenance
+    if "vehicules en maintenance" in q or "véhicules nécessitent une maintenance" in q:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("SELECT immatriculation, marque, modele, statut, kilometrage FROM vehicules WHERE statut = 'en_maintenance'")
+            rows = cursor.fetchall()
+            if rows:
+                natural = "🔧 Voici les véhicules en maintenance :"
+            else:
+                natural = "✅ Aucun véhicule n'est actuellement en maintenance."
+            return {
+                "natural_response": natural,
+                "sql": "SELECT immatriculation, marque, modele, statut, kilometrage FROM vehicules WHERE statut = 'en_maintenance'",
+                "results": rows
+            }
+        finally:
+            cursor.close()
+            conn.close()
+    
+    # Chiffre d'affaires du mois
+    if "chiffre d affaires" in q or "ca du mois" in q or "recettes du mois" in q:
         conn = get_db()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         try:
             cursor.execute("""
-                SELECT COALESCE(SUM(recette),0) as total 
+                SELECT COALESCE(SUM(recette),0) as total_recettes,
+                       COUNT(*) as nb_trajets
                 FROM trajets 
                 WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) 
                 AND EXTRACT(YEAR FROM date_heure_depart)=EXTRACT(YEAR FROM CURRENT_TIMESTAMP) 
@@ -234,177 +291,51 @@ def chat(request: ChatRequest):
             """)
             row = cursor.fetchone()
             return {
-                "natural_response": f"💰 Chiffre d'affaires du mois : {row['total']:,.0f} FCFA",
-                "sql": "SELECT SUM(recette) FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_DATE) AND statut='termine'",
-                "results": [{"total": row['total']}]
+                "natural_response": f"💰 Chiffre d'affaires du mois : {row['total_recettes']:,.0f} FCFA pour {row['nb_trajets']} trajets",
+                "sql": "SELECT COALESCE(SUM(recette),0) as total FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) AND statut='termine'",
+                "results": [{"total_recettes": row['total_recettes'], "nb_trajets": row['nb_trajets']}]
             }
         finally:
             cursor.close()
             conn.close()
     
-    # 2. Véhicules en maintenance
-    if "vehicules en maintenance" in q or "véhicules en maintenance" in q:
+    # Liste des lignes
+    if "liste des lignes" in q or "lignes disponibles" in q:
         conn = get_db()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         try:
-            cursor.execute("SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut = 'en_maintenance'")
-            rows = cursor.fetchall()
-            natural = "🔧 Véhicules en maintenance :" if rows else "✅ Aucun véhicule en maintenance"
-            return {
-                "natural_response": natural,
-                "sql": "SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut = 'en_maintenance'",
-                "results": rows
-            }
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 3. Lundi et mardi
-    if "lundi et mardi" in q or "mardi et lundi" in q:
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("""
-                SELECT 
-                    CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' 
-                         WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour,
-                    COUNT(*) as nb_trajets
-                FROM trajets
-                WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1)
-                GROUP BY jour
-            """)
+            cursor.execute("SELECT code_ligne, nom, point_depart, point_arrivee, distance_km FROM lignes")
             results = cursor.fetchall()
             return {
-                "natural_response": "📊 Nombre de trajets le lundi et mardi :",
-                "sql": "SELECT CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour, COUNT(*) as nb_trajets FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1) GROUP BY jour",
+                "natural_response": "🚏 Liste des lignes de transport :",
+                "sql": "SELECT code_ligne, nom, point_depart, point_arrivee, distance_km FROM lignes",
                 "results": results
             }
         finally:
             cursor.close()
             conn.close()
-    
-    # 4. Samedi et dimanche
-    if "samedi et dimanche" in q or "dimanche et samedi" in q:
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("""
-                SELECT 
-                    CASE WHEN EXTRACT(DOW FROM date_heure_depart)=5 THEN 'Samedi' 
-                         WHEN EXTRACT(DOW FROM date_heure_depart)=6 THEN 'Dimanche' END as jour,
-                    COUNT(*) as nb_trajets,
-                    COALESCE(SUM(recette),0) as total_recettes
-                FROM trajets
-                WHERE EXTRACT(DOW FROM date_heure_depart) IN (5,6)
-                GROUP BY jour
-            """)
-            results = cursor.fetchall()
-            return {
-                "natural_response": "📊 Nombre de trajets et recettes le samedi et dimanche :",
-                "sql": "SELECT CASE WHEN EXTRACT(DOW FROM date_heure_depart)=5 THEN 'Samedi' WHEN EXTRACT(DOW FROM date_heure_depart)=6 THEN 'Dimanche' END as jour, COUNT(*) as nb_trajets, SUM(recette) as total_recettes FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) IN (5,6) GROUP BY jour",
-                "results": results
-            }
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 5. Chauffeur avec le plus d'incidents
-    if "plus d'incidents" in q or "chauffeur a le plus d'incidents" in q:
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("""
-                SELECT c.nom, c.prenom, COUNT(i.id) as nb_incidents
-                FROM chauffeurs c
-                JOIN trajets t ON c.id = t.chauffeur_id
-                JOIN incidents i ON t.id = i.trajet_id
-                GROUP BY c.id, c.nom, c.prenom
-                ORDER BY nb_incidents DESC
-                LIMIT 1
-            """)
-            row = cursor.fetchone()
-            if row:
-                return {
-                    "natural_response": f"🚨 Le chauffeur avec le plus d'incidents est {row['prenom']} {row['nom']} avec {row['nb_incidents']} incidents.",
-                    "sql": "SELECT c.nom, c.prenom, COUNT(i.id) as nb_incidents FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id GROUP BY c.id ORDER BY nb_incidents DESC LIMIT 1",
-                    "results": [row]
-                }
-            return {"natural_response": "Aucun incident trouvé", "sql": None, "results": []}
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 6. Recettes et trajets par chauffeur
-    if "recettes et trajets par chauffeur" in q:
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("""
-                SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, 
-                       COALESCE(SUM(t.recette),0) as total_recettes,
-                       COUNT(t.id) as nb_trajets
-                FROM chauffeurs c
-                LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine'
-                GROUP BY c.id, c.prenom, c.nom
-                ORDER BY total_recettes DESC
-            """)
-            results = cursor.fetchall()
-            return {
-                "natural_response": "💰 Recettes et trajets par chauffeur :",
-                "sql": "SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, COALESCE(SUM(t.recette),0) as total_recettes, COUNT(t.id) as nb_trajets FROM chauffeurs c LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine' GROUP BY c.id ORDER BY total_recettes DESC",
-                "results": results
-            }
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 7. Liste des lignes
-    if "liste des lignes" in q:
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("SELECT code_ligne, nom, point_depart, point_arrivee FROM lignes")
-            results = cursor.fetchall()
-            return {
-                "natural_response": "🚏 Liste des lignes :",
-                "sql": "SELECT code_ligne, nom, point_depart, point_arrivee FROM lignes",
-                "results": results
-            }
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 8. Nombre de trajets par jour (simple)
-    jours_simples = {"lundi":0, "mardi":1, "mercredi":2, "jeudi":3, "vendredi":4, "samedi":5, "dimanche":6}
-    for jour, index in jours_simples.items():
-        if jour in q and "nombre" in q and "trajet" in q and "et" not in q:
-            conn = get_db()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            try:
-                cursor.execute("SELECT COUNT(*) as total FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) = %s", (index,))
-                row = cursor.fetchone()
-                return {
-                    "natural_response": f"Il y a {row['total']} trajets le {jour}.",
-                    "sql": f"SELECT COUNT(*) FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) = {index}",
-                    "results": [{"total": row['total']}]
-                }
-            finally:
-                cursor.close()
-                conn.close()
     
     # ========== GROQ POUR LES AUTRES QUESTIONS ==========
     if client is None:
-        return {"natural_response": "❌ IA non configurée.", "sql": None, "results": []}
+        return {
+            "natural_response": "❌ IA non configurée. Veuillez configurer GROQ_API_KEY.",
+            "sql": None,
+            "results": []
+        }
     
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": question}],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": question}
+            ],
             temperature=0.1,
             max_tokens=800
         )
         response_text = response.choices[0].message.content
         
+        # Extraction du JSON
         match = re.search(r'\{[^{}]*"sql"[^{}]*"natural"[^{}]*\}', response_text, re.DOTALL)
         
         if match:
@@ -412,40 +343,73 @@ def chat(request: ChatRequest):
                 json_str = match.group()
                 json_str = json_str.replace('\n', ' ').replace('\r', ' ')
                 data = json.loads(json_str)
-                sql = data.get("sql", "")
-                natural = data.get("natural", response_text[:200])
-                results = []
-                if sql and sql.strip():
-                    # Vérifier que ce n'est pas une fausse requête
-                    if "SELECT '" in sql.upper() and "FROM" not in sql.upper():
-                        return {
-                            "natural_response": "Je ne peux pas répondre à cette question. Posez-moi une question sur vos données de transport.",
-                            "sql": None,
-                            "results": []
-                        }
-                    results, error = execute_sql(sql)
-                    if error:
-                        natural = f"❌ {error}\n\n{natural}"
-                return {"natural_response": natural, "sql": sql if sql else None, "results": results if results else []}
-            except:
+                sql = data.get("sql", "").strip()
+                natural = data.get("natural", "").strip()
+                
+                # Si pas de SQL, retourner juste la réponse naturelle
+                if not sql:
+                    return {
+                        "natural_response": natural if natural else "Je n'ai pas compris votre question.",
+                        "sql": None,
+                        "results": []
+                    }
+                
+                # Exécuter la requête SQL
+                results, error = execute_sql(sql)
+                
+                if error:
+                    return {
+                        "natural_response": f"⚠️ Erreur: {error}\n\nVeuillez reformuler votre question.",
+                        "sql": sql,
+                        "results": []
+                    }
+                
+                # Générer une réponse naturelle si nécessaire
+                if not natural and results:
+                    if len(results) == 1 and len(results[0]) == 1:
+                        # Cas d'un seul résultat
+                        value = list(results[0].values())[0]
+                        natural = f"Résultat : {value}"
+                    else:
+                        natural = f"Voici les résultats pour votre question :"
+                
+                return {
+                    "natural_response": natural,
+                    "sql": sql,
+                    "results": results if results else []
+                }
+            except json.JSONDecodeError as e:
+                print(f"Erreur JSON: {e}")
                 pass
         
-        return {"natural_response": response_text[:500], "sql": None, "results": []}
+        return {
+            "natural_response": response_text[:500] if response_text else "Je n'ai pas pu générer une réponse.",
+            "sql": None,
+            "results": []
+        }
         
     except Exception as e:
-        return {"natural_response": f"❌ Erreur: {str(e)}", "sql": None, "results": []}
+        print(f"Erreur Groq: {e}")
+        return {
+            "natural_response": f"❌ Erreur: {str(e)}",
+            "sql": None,
+            "results": []
+        }
+
 
 # ============ ENDPOINTS ============
+
 @app.get("/vehicules")
 def get_vehicules():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        cursor.execute("SELECT id, immatriculation, marque, modele, statut FROM vehicules")
+        cursor.execute("SELECT id, immatriculation, marque, modele, statut, kilometrage FROM vehicules")
         return cursor.fetchall()
     finally:
         cursor.close()
         conn.close()
+
 
 @app.get("/chauffeurs")
 def get_chauffeurs():
@@ -458,16 +422,18 @@ def get_chauffeurs():
         cursor.close()
         conn.close()
 
+
 @app.get("/lignes")
 def get_lignes():
     conn = get_db()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        cursor.execute("SELECT code_ligne, nom, point_depart, point_arrivee FROM lignes")
+        cursor.execute("SELECT code_ligne, nom, point_depart, point_arrivee, distance_km FROM lignes")
         return cursor.fetchall()
     finally:
         cursor.close()
         conn.close()
+
 
 @app.get("/trajets")
 def get_trajets(limit: int = 10):
@@ -475,10 +441,12 @@ def get_trajets(limit: int = 10):
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cursor.execute("""
-            SELECT t.id, t.date_heure_depart, t.statut, t.recette, 
-                   CONCAT(c.prenom, ' ', c.nom) as chauffeur
+            SELECT t.id, t.date_heure_depart, t.statut, t.recette, t.nb_passagers,
+                   CONCAT(c.prenom, ' ', c.nom) as chauffeur,
+                   v.immatriculation as vehicule
             FROM trajets t 
             LEFT JOIN chauffeurs c ON t.chauffeur_id = c.id
+            LEFT JOIN vehicules v ON t.vehicule_id = v.id
             ORDER BY t.date_heure_depart DESC 
             LIMIT %s
         """, (limit,))
@@ -487,6 +455,7 @@ def get_trajets(limit: int = 10):
         cursor.close()
         conn.close()
 
+
 @app.get("/", response_class=HTMLResponse)
 async def get_html():
     html_path = os.path.join(os.path.dirname(__file__), "index.html")
@@ -494,6 +463,7 @@ async def get_html():
         with open(html_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>TranspoBot</h1>")
+
 
 if __name__ == "__main__":
     import uvicorn
