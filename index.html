@@ -12,6 +12,34 @@
     
     <style>
         * { font-family: 'Inter', sans-serif; }
+
+        /* Correction pour que la sidebar prenne toute la hauteur */
+#sidebar {
+    height: 100vh !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Le conteneur de la sidebar doit prendre toute la hauteur */
+aside {
+    min-height: 100vh;
+}
+
+/* Pour que le contenu pousse le footer en bas */
+.sidebar-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.mt-auto {
+    margin-top: auto;
+}
         
         /* Reset mobile safe */
         html, body {

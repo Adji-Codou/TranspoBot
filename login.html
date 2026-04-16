@@ -2,249 +2,469 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion | TranspoBot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>TranspoBot - Connexion</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
+        * {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
-        @keyframes textGlow {
-            0% { text-shadow: 0 0 5px #4f46e5, 0 0 10px #4f46e5; }
-            25% { text-shadow: 0 0 15px #7c3aed, 0 0 25px #4f46e5; }
-            50% { text-shadow: 0 0 20px #a78bfa, 0 0 35px #7c3aed; }
-            75% { text-shadow: 0 0 15px #7c3aed, 0 0 25px #4f46e5; }
-            100% { text-shadow: 0 0 5px #4f46e5, 0 0 10px #4f46e5; }
+
+        .login-container {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
         }
-        @keyframes borderPulse {
-            0%, 100% { border-color: rgba(79, 70, 229, 0.3); box-shadow: 0 0 10px rgba(79, 70, 229, 0.1); }
-            50% { border-color: rgba(124, 58, 237, 0.6); box-shadow: 0 0 25px rgba(124, 58, 237, 0.3); }
+
+        .login-card {
+            background: white;
+            border-radius: 32px;
+            padding: 40px 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: fadeUp 0.5s ease;
         }
-        
-        .animate-fade-up { animation: fadeInUp 0.6s ease forwards; }
-        .float-icon { animation: float 5s ease-in-out infinite; }
-        .glow-text { animation: textGlow 3s ease-in-out infinite; }
-        .glass-card {
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(79, 70, 229, 0.3);
-            animation: borderPulse 3s infinite;
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        
-        .tab-active {
-            border-bottom: 2px solid #7c3aed;
-            color: #7c3aed;
+
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
         }
-        
-        .input-glass {
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(79, 70, 229, 0.3);
-            color: white;
-            transition: all 0.3s;
+
+        .logo h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        .input-glass:focus {
-            border-color: #7c3aed;
+
+        .logo p {
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 32px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 12px;
+        }
+
+        .tab {
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #999;
+            transition: all 0.3s ease;
+            padding-bottom: 8px;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+            font-size: 0.85rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
             outline: none;
-            box-shadow: 0 0 15px rgba(124, 58, 237, 0.4);
-            transform: translateY(-2px);
         }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            transition: all 0.3s;
+
+        .input-group input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
+
+        .human-check {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin: 24px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
-        
-        .particle {
-            position: fixed;
-            border-radius: 50%;
-            pointer-events: none;
-            opacity: 0.4;
-            animation: float 8s infinite;
+
+        .human-check.verified {
+            background: #f0fdf4;
+            border-color: #22c55e;
+        }
+
+        .human-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .checkbox-custom {
+            width: 22px;
+            height: 22px;
+            background: white;
+            border: 2px solid #cbd5e1;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .human-check.verified .checkbox-custom {
+            background: #22c55e;
+            border-color: #22c55e;
+        }
+
+        .human-check.verified .checkbox-custom::after {
+            content: "✓";
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .human-text {
+            font-weight: 500;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .human-hint {
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+
+        .login-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 8px;
+        }
+
+        .login-btn:active {
+            transform: scale(0.98);
+        }
+
+        .guest-mode {
+            text-align: center;
+            margin-top: 24px;
+        }
+
+        .guest-link {
+            background: none;
+            border: none;
+            color: #667eea;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+            color: #999;
+            font-size: 0.7rem;
+        }
+
+        .error-msg, .success-msg {
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .error-msg {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .success-msg {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+
+        .error-msg.show, .success-msg.show {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 500px) {
+            .login-card {
+                padding: 30px 24px;
+            }
+
+            .logo h1 {
+                font-size: 1.6rem;
+            }
+
+            .tab {
+                font-size: 1rem;
+            }
+
+            .input-group input {
+                padding: 12px 14px;
+                font-size: 0.9rem;
+            }
+
+            .human-check {
+                padding: 12px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .human-left {
+                gap: 10px;
+            }
+
+            .human-text {
+                font-size: 0.85rem;
+            }
+
+            .human-hint {
+                font-size: 0.75rem;
+            }
+
+            .login-btn {
+                padding: 12px;
+            }
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-end p-4 pr-20" style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?ixlib=rb-4.0.3&auto=format&fit=crop&w=1469&q=80'); background-size: cover; background-position: center; background-attachment: fixed;">
-
-    <div class="particle w-64 h-64 bg-indigo-500/20 rounded-full -top-20 -left-20" style="animation-duration: 12s;"></div>
-    <div class="particle w-96 h-96 bg-purple-500/10 rounded-full -bottom-40 right-40" style="animation-duration: 15s;"></div>
-    <div class="particle w-40 h-40 bg-cyan-500/10 rounded-full top-1/2 left-1/3" style="animation-duration: 10s;"></div>
-
-    <div class="float-icon absolute top-20 left-20 opacity-15 text-6xl text-indigo-400"><i class="fa-solid fa-bus"></i></div>
-    <div class="float-icon absolute bottom-20 left-40 opacity-15 text-5xl text-purple-400" style="animation-delay: 2s;"><i class="fa-solid fa-chart-line"></i></div>
-    <div class="float-icon absolute top-1/3 right-20 opacity-10 text-5xl text-cyan-400" style="animation-delay: 3s;"><i class="fa-solid fa-robot"></i></div>
-
-    <div class="max-w-md w-full animate-fade-up z-10 mr-0 lg:mr-20">
-        
-        <div class="text-center mb-8">
-            <div class="bg-gradient-to-br from-indigo-600 to-purple-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto shadow-2xl">
-                <i class="fa-solid fa-bus-simple text-white text-3xl"></i>
-            </div>
-            <h1 class="text-4xl font-bold text-white mt-4 glow-text">TranspoBot</h1>
-            <p class="text-indigo-300 text-sm mt-1">Gestion de transport par IA</p>
-        </div>
-
-        <div class="glass-card rounded-2xl p-8 shadow-2xl">
-            
-            <div class="flex border-b border-indigo-500/30 mb-6">
-                <button id="tab-login" onclick="showLoginTab()" class="flex-1 py-2 text-center font-medium text-white/70 tab-active transition-all">
-                    <i class="fa-solid fa-key mr-2"></i>Connexion
-                </button>
-                <button id="tab-register" onclick="showRegisterTab()" class="flex-1 py-2 text-center font-medium text-white/70 transition-all">
-                    <i class="fa-solid fa-user-plus mr-2"></i>Inscription
-                </button>
-            </div>
-
-            <div id="error-message" class="hidden bg-red-500/20 border border-red-500 text-red-300 px-4 py-2 rounded-xl text-sm mb-4"></div>
-            <div id="success-message" class="hidden bg-green-500/20 border border-green-500 text-green-300 px-4 py-2 rounded-xl text-sm mb-4"></div>
-
-            <div id="login-form" class="space-y-4">
-                <div class="relative">
-                    <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
-                    <input type="email" id="login-email" placeholder="Email" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
-                </div>
-                <div class="relative">
-                    <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
-                    <input type="password" id="login-password" placeholder="Mot de passe" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
-                </div>
-                
-                <div class="bg-slate-800/50 rounded-xl p-4 border border-indigo-500/20">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-gradient-to-br from-indigo-600 to-purple-600 p-2 rounded-lg">
-                            <i class="fa-solid fa-robot text-white text-sm"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-xs text-white/70">Vérification humaine</p>
-                            <p class="text-[10px] text-white/40">Cliquez pour confirmer</p>
-                        </div>
-                        <input type="checkbox" id="login-captcha" class="w-5 h-5 rounded border-indigo-500 focus:ring-purple-500">
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo">
+                <div class="flex items-center justify-center gap-2 mb-2">
+                    <div class="bg-gradient-to-tr from-blue-500 to-indigo-600 p-2 rounded-xl">
+                        <i class="fa-solid fa-bus-simple text-white text-xl"></i>
                     </div>
                 </div>
-
-                <button onclick="login()" class="w-full btn-primary text-white py-3 rounded-xl font-medium shadow-lg mt-4">
-                    <i class="fa-solid fa-arrow-right-to-bracket mr-2"></i> Se connecter
-                </button>
+                <h1>TranspoBot</h1>
+                <p>Gestion de transport par IA</p>
             </div>
 
-            <div id="register-form" class="space-y-4 hidden">
-                <div class="relative">
-                    <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
-                    <input type="text" id="register-name" placeholder="Nom complet" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+            <div class="tabs">
+                <div class="tab active" data-mode="login">Connexion</div>
+                <div class="tab" data-mode="register">Inscription</div>
+            </div>
+
+            <div id="errorMsg" class="error-msg"></div>
+            <div id="successMsg" class="success-msg"></div>
+
+            <form id="loginForm">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="adresse@exemple.com">
                 </div>
-                <div class="relative">
-                    <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
-                    <input type="email" id="register-email" placeholder="Email" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
+
+                <div class="input-group">
+                    <label>Mot de passe</label>
+                    <input type="password" id="password" placeholder="Mot de passe">
                 </div>
-                <div class="relative">
-                    <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
-                    <input type="password" id="register-password" placeholder="Mot de passe" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
-                </div>
-                <div class="relative">
-                    <i class="fa-solid fa-check-circle absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-sm"></i>
-                    <input type="password" id="register-confirm-password" placeholder="Confirmer" class="w-full input-glass rounded-xl pl-10 pr-4 py-3 text-sm">
-                </div>
-                
-                <div class="bg-slate-800/50 rounded-xl p-4 border border-indigo-500/20">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-gradient-to-br from-indigo-600 to-purple-600 p-2 rounded-lg">
-                            <i class="fa-solid fa-robot text-white text-sm"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-xs text-white/70">Vérification humaine</p>
-                            <p class="text-[10px] text-white/40">Cliquez pour confirmer</p>
-                        </div>
-                        <input type="checkbox" id="register-captcha" class="w-5 h-5 rounded border-indigo-500 focus:ring-purple-500">
+
+                <div class="human-check" id="humanCheck">
+                    <div class="human-left">
+                        <div class="checkbox-custom"></div>
+                        <span class="human-text">Vérification humaine</span>
                     </div>
+                    <span class="human-hint" id="humanHint">Cliquez pour confirmer</span>
                 </div>
 
-                <button onclick="register()" class="w-full btn-primary text-white py-3 rounded-xl font-medium shadow-lg mt-4">
-                    <i class="fa-solid fa-user-plus mr-2"></i> S'inscrire
+                <button type="submit" class="login-btn" id="submitBtn">
+                    <i class="fa-solid fa-arrow-right"></i> Se connecter
                 </button>
+            </form>
+
+            <div class="guest-mode">
+                <button class="guest-link" id="guestBtn">Continuer en mode invité</button>
             </div>
 
-            <div class="mt-4 text-center">
-                <button onclick="loginAsGuest()" class="text-indigo-300 text-sm hover:text-indigo-200 transition flex items-center justify-center gap-2 mx-auto">
-                    <i class="fa-solid fa-user-astronaut"></i> Continuer en mode invité
-                </button>
+            <div class="footer">
+                ESP / UCAD - Licence 3 GLSI
             </div>
-
-            <p class="text-[10px] text-center text-white/30 mt-6 pt-4 border-t border-white/10">
-                ESP / UCAD - Licence 3 GLSi
-            </p>
         </div>
     </div>
 
     <script>
-        let users = JSON.parse(localStorage.getItem('transpobot_users') || '[{"fullname":"Admin ESP","email":"admin@esp.sn","password":"admin123"}]');
-        function saveUsers(u) { localStorage.setItem('transpobot_users', JSON.stringify(u)); }
-        function showError(msg) { let d=document.getElementById('error-message'); d.innerHTML='<i class="fa-solid fa-circle-exclamation mr-2"></i> '+msg; d.classList.remove('hidden'); setTimeout(()=>d.classList.add('hidden'),3000); }
-        function showSuccess(msg) { let d=document.getElementById('success-message'); d.innerHTML='<i class="fa-solid fa-check-circle mr-2"></i> '+msg; d.classList.remove('hidden'); setTimeout(()=>d.classList.add('hidden'),3000); }
-        function showLoginTab() { document.getElementById('login-form').classList.remove('hidden'); document.getElementById('register-form').classList.add('hidden'); document.getElementById('tab-login').classList.add('tab-active'); document.getElementById('tab-register').classList.remove('tab-active'); }
-        function showRegisterTab() { document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden'); document.getElementById('tab-register').classList.add('tab-active'); document.getElementById('tab-login').classList.remove('tab-active'); }
-        
-        function login() { 
-            let email=document.getElementById('login-email').value.trim(); 
-            let pwd=document.getElementById('login-password').value; 
-            let captcha=document.getElementById('login-captcha').checked; 
-            if(!email||!pwd) return showError("Remplissez tous les champs"); 
-            if(!captcha) return showError("Confirmez que vous n'êtes pas un robot"); 
-            let user=users.find(u=>u.email===email&&u.password===pwd); 
-            if(user){ 
-                // Sauvegarder avec l'indicateur justLoggedIn pour afficher le message de bienvenue
-                localStorage.setItem('transpobot_user',JSON.stringify({
-                    name:user.fullname, 
-                    email:user.email, 
-                    loggedIn:true,
-                    justLoggedIn: true
-                })); 
-                window.location.href='/'; 
-            } else showError("Email ou mot de passe incorrect"); 
+        // Configuration de connexion
+        const VALID_EMAIL = "adjicoudoignaz@gmail.com";
+        const VALID_PASSWORD = "Dadja054";
+
+        let currentMode = "login";
+        let humanVerified = false;
+
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const submitBtn = document.getElementById("submitBtn");
+        const humanCheckDiv = document.getElementById("humanCheck");
+        const humanHint = document.getElementById("humanHint");
+        const errorMsg = document.getElementById("errorMsg");
+        const successMsg = document.getElementById("successMsg");
+        const guestBtn = document.getElementById("guestBtn");
+        const tabs = document.querySelectorAll(".tab");
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add("show");
+            successMsg.classList.remove("show");
+            setTimeout(() => errorMsg.classList.remove("show"), 3000);
         }
-        
-        function register() { 
-            let name=document.getElementById('register-name').value.trim(); 
-            let email=document.getElementById('register-email').value.trim(); 
-            let pwd=document.getElementById('register-password').value; 
-            let confirm=document.getElementById('register-confirm-password').value; 
-            let captcha=document.getElementById('register-captcha').checked; 
-            if(!name||!email||!pwd||!confirm) return showError("Remplissez tous les champs"); 
-            if(pwd!==confirm) return showError("Mots de passe différents"); 
-            if(pwd.length<4) return showError("4 caractères minimum"); 
-            if(!captcha) return showError("Confirmez le captcha"); 
-            if(users.find(u=>u.email===email)) return showError("Email déjà utilisé"); 
-            users.push({fullname:name,email:email,password:pwd}); 
-            saveUsers(users); 
-            showSuccess("Inscription réussie ! Connectez-vous"); 
-            showLoginTab(); 
-            document.getElementById('login-email').value=email; 
+
+        function showSuccess(msg) {
+            successMsg.textContent = msg;
+            successMsg.classList.add("show");
+            errorMsg.classList.remove("show");
+            setTimeout(() => successMsg.classList.remove("show"), 3000);
         }
+
+        // Vérification humaine
+        humanCheckDiv.addEventListener("click", function() {
+            if (!humanVerified) {
+                humanVerified = true;
+                humanCheckDiv.classList.add("verified");
+                humanHint.textContent = "✓ Vérifié";
+                showSuccess("Vérification humaine réussie");
+            }
+        });
+
+        // Changer mode Connexion/Inscription
+        tabs.forEach(tab => {
+            tab.addEventListener("click", function() {
+                tabs.forEach(t => t.classList.remove("active"));
+                this.classList.add("active");
+                currentMode = this.getAttribute("data-mode");
+                
+                if (currentMode === "login") {
+                    submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Se connecter';
+                } else {
+                    submitBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> S\'inscrire';
+                }
+                
+                humanVerified = false;
+                humanCheckDiv.classList.remove("verified");
+                humanHint.textContent = "Cliquez pour confirmer";
+                emailInput.value = "";
+                passwordInput.value = "";
+                errorMsg.classList.remove("show");
+                successMsg.classList.remove("show");
+            });
+        });
+
+        // Gestion du formulaire
+        document.getElementById("loginForm").addEventListener("submit", function(e) {
+            e.preventDefault();
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            
+            if (!email || !password) {
+                showError("Veuillez remplir tous les champs");
+                return;
+            }
+            
+            if (!humanVerified) {
+                showError("Veuillez compléter la vérification humaine");
+                return;
+            }
+            
+            if (currentMode === "login") {
+                if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+                    showSuccess("Connexion réussie ! Redirection...");
+                    localStorage.setItem('transpobot_user', JSON.stringify({
+                        email: email,
+                        name: email.split('@')[0],
+                        loggedIn: true,
+                        justLoggedIn: true
+                    }));
+                    setTimeout(() => {
+                        window.location.href = "/";
+                    }, 1500);
+                } else {
+                    showError("Email ou mot de passe incorrect");
+                }
+            } else {
+                if (email && password.length >= 4) {
+                    showSuccess("Inscription réussie ! Redirection vers la connexion...");
+                    setTimeout(() => {
+                        tabs[0].click();
+                    }, 2000);
+                } else {
+                    showError("Mot de passe trop court (minimum 4 caractères)");
+                }
+            }
+        });
         
-        function loginAsGuest() { 
-            localStorage.setItem('transpobot_user',JSON.stringify({
-                name:"Invité",
-                email:"guest@transpobot.sn",
-                loggedIn:true,
+        // Mode invité
+        guestBtn.addEventListener("click", function() {
+            localStorage.setItem('transpobot_user', JSON.stringify({
+                name: "Invité",
+                loggedIn: true,
                 justLoggedIn: true
-            })); 
-            window.location.href='/'; 
-        }
+            }));
+            showSuccess("Mode invité - Redirection...");
+            setTimeout(() => {
+                window.location.href = "/";
+            }, 1000);
+        });
         
-        if(localStorage.getItem('transpobot_user')) {
-            let user = JSON.parse(localStorage.getItem('transpobot_user'));
-            if(user.loggedIn) window.location.href='/';
-        }
+        // Remplir automatiquement pour test (optionnel)
+        emailInput.value = "adjicoudoignaz@gmail.com";
+        passwordInput.value = "Dadja054";
     </script>
 </body>
 </html>
