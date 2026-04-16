@@ -1,5 +1,5 @@
 """
-TranspoBot - Version Finale avec fallback pour jours multiples
+TranspoBot - Version Finale pour PostgreSQL (Render)
 """
 
 from fastapi import FastAPI
@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import psycopg2
-from psycopg2.extras import RealDictCursor  # AJOUT OBLIGATOIRE pour PostgreSQL
+from psycopg2.extras import RealDictCursor
 import os
 import re
 import json
@@ -35,7 +35,7 @@ if GROQ_API_KEY:
         client = Groq(api_key=GROQ_API_KEY)
         print("✅ Groq configuré")
     except Exception as e:
-        print(f"⚠️ Erreur: {e}")
+        print(f"⚠️ Erreur Groq: {e}")
 else:
     print("❌ GROQ_API_KEY non trouvée")
 
@@ -61,7 +61,7 @@ async def login_page():
 @app.get("/dashboard/kpis")
 def get_kpis():
     conn = get_db()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)  # CORRIGÉ pour PostgreSQL
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cursor.execute("SELECT COUNT(*) as vehicules_actifs FROM vehicules WHERE statut='actif'")
         v = cursor.fetchone()
@@ -73,7 +73,7 @@ def get_kpis():
         t = cursor.fetchone()
         return {
             "vehicules_actifs": v['vehicules_actifs'],
-            "recettes_mois": r['recettes_mois'],
+            "recettes_mois": float(r['recettes_mois']),
             "incidents_non_resolus": i['incidents_non_resolus'],
             "trajets_en_cours": t['trajets_en_cours']
         }
@@ -87,7 +87,7 @@ def get_kpis():
 @app.get("/dashboard/trajets-chart")
 def get_trajets_chart():
     conn = get_db()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)  # CORRIGÉ pour PostgreSQL
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cursor.execute("""
             SELECT EXTRACT(DOW FROM date_heure_depart) as jour, COUNT(*) as nb, COALESCE(SUM(recette),0) as recettes
@@ -116,7 +116,7 @@ def execute_sql(sql: str):
     sql_clean = re.sub(r'```sql\n?|```\n?', '', sql.strip())
     sql_clean = sql_clean.replace('\n', ' ').replace('\r', '')
     
-    # Conversion MySQL -> PostgreSQL pour les fonctions courantes
+    # Conversion MySQL -> PostgreSQL
     sql_clean = sql_clean.replace('WEEKDAY(', 'EXTRACT(DOW FROM ')
     sql_clean = sql_clean.replace('MONTH(', 'EXTRACT(MONTH FROM ')
     sql_clean = sql_clean.replace('YEAR(', 'EXTRACT(YEAR FROM ')
@@ -127,7 +127,7 @@ def execute_sql(sql: str):
         return None, "SELECT uniquement"
     try:
         conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)  # CORRIGÉ pour PostgreSQL
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(sql_clean)
         results = cursor.fetchall()
         cursor.close()
@@ -135,64 +135,6 @@ def execute_sql(sql: str):
         return results, None
     except Exception as e:
         return None, str(e)
-
-def traiter_jours_multiple(question: str):
-    """Traitement spécifique pour les questions avec plusieurs jours"""
-    q = question.lower()
-    
-    jours_map = {
-        "lundi": 0, "mardi": 1, "mercredi": 2, "jeudi": 3,
-        "vendredi": 4, "samedi": 5, "dimanche": 6
-    }
-    
-    jours_trouves = []
-    for jour, index in jours_map.items():
-        if jour in q:
-            jours_trouves.append((jour, index))
-    
-    if len(jours_trouves) >= 2:
-        jours_noms = [j[0] for j in jours_trouves]
-        jours_index = [j[1] for j in jours_trouves]
-        
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        if "incident" in q:
-            cursor.execute(f"""
-                SELECT 
-                    CASE WHEN EXTRACT(DOW FROM t.date_heure_depart) = {jours_index[0]} THEN '{jours_noms[0].capitalize()}'
-                         WHEN EXTRACT(DOW FROM t.date_heure_depart) = {jours_index[1]} THEN '{jours_noms[1].capitalize()}'
-                    END as jour,
-                    COUNT(DISTINCT t.id) as nb_trajets,
-                    COUNT(i.id) as nb_incidents
-                FROM trajets t
-                LEFT JOIN incidents i ON t.id = i.trajet_id
-                WHERE EXTRACT(DOW FROM t.date_heure_depart) IN ({jours_index[0]}, {jours_index[1]})
-                GROUP BY jour
-            """)
-        else:
-            cursor.execute(f"""
-                SELECT 
-                    CASE WHEN EXTRACT(DOW FROM date_heure_depart) = {jours_index[0]} THEN '{jours_noms[0].capitalize()}'
-                         WHEN EXTRACT(DOW FROM date_heure_depart) = {jours_index[1]} THEN '{jours_noms[1].capitalize()}'
-                    END as jour,
-                    COUNT(*) as nb_trajets
-                FROM trajets
-                WHERE EXTRACT(DOW FROM date_heure_depart) IN ({jours_index[0]}, {jours_index[1]})
-                GROUP BY jour
-            """)
-        
-        results = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        
-        if results:
-            if "incident" in q:
-                natural = f"📊 Nombre de trajets et incidents les {jours_noms[0]} et {jours_noms[1]} :"
-            else:
-                natural = f"📊 Nombre de trajets les {jours_noms[0]} et {jours_noms[1]} :"
-            return natural, results
-    return None, None
 
 # PROMPT SYSTÈME
 SYSTEM_PROMPT = """
@@ -262,48 +204,26 @@ def chat(request: ChatRequest):
             "results": rows
         }
     
-    # 3. Plusieurs jours (LUNDI ET MARDI, etc.)
+    # 3. Lundi et mardi
     if "lundi et mardi" in q or "mardi et lundi" in q:
-        if "incident" in q:
-            conn = get_db()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute("""
-                SELECT 
-                    CASE WHEN EXTRACT(DOW FROM t.date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM t.date_heure_depart)=1 THEN 'Mardi' END as jour,
-                    COUNT(DISTINCT t.id) as nb_trajets,
-                    COUNT(i.id) as nb_incidents
-                FROM trajets t
-                LEFT JOIN incidents i ON t.id = i.trajet_id
-                WHERE EXTRACT(DOW FROM t.date_heure_depart) IN (0,1)
-                GROUP BY jour
-            """)
-            results = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            return {
-                "natural_response": "📊 Nombre de trajets et incidents le lundi et mardi :",
-                "sql": "SELECT CASE WHEN EXTRACT(DOW FROM t.date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM t.date_heure_depart)=1 THEN 'Mardi' END as jour, COUNT(DISTINCT t.id) as nb_trajets, COUNT(i.id) as nb_incidents FROM trajets t LEFT JOIN incidents i ON t.id=i.trajet_id WHERE EXTRACT(DOW FROM t.date_heure_depart) IN (0,1) GROUP BY jour",
-                "results": results
-            }
-        else:
-            conn = get_db()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute("""
-                SELECT 
-                    CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour,
-                    COUNT(*) as nb_trajets
-                FROM trajets
-                WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1)
-                GROUP BY jour
-            """)
-            results = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            return {
-                "natural_response": "📊 Nombre de trajets le lundi et mardi :",
-                "sql": "SELECT CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour, COUNT(*) as nb_trajets FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1) GROUP BY jour",
-                "results": results
-            }
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT 
+                CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour,
+                COUNT(*) as nb_trajets
+            FROM trajets
+            WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1)
+            GROUP BY jour
+        """)
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return {
+            "natural_response": "📊 Nombre de trajets le lundi et mardi :",
+            "sql": "SELECT CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour, COUNT(*) as nb_trajets FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1) GROUP BY jour",
+            "results": results
+        }
     
     # 4. Samedi et dimanche
     if "samedi et dimanche" in q or "dimanche et samedi" in q:
