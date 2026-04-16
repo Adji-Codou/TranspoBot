@@ -103,15 +103,21 @@
         .sidebar-hidden { transform: translateX(-100%); }
         .content-full { width: 100%; max-width: 100% !important; }
         
-        @media (max-width: 768px) {
-            .kpi-card .flex { flex-direction: column; align-items: center; text-align: center; }
-            .data-table { font-size: 0.7rem; }
+        /* Style pour le bouton menu (3 traits) */
+        #menu-btn {
+            display: flex;
+            z-index: 100;
         }
         
         @media (min-width: 769px) {
             #sidebar { transform: translateX(0) !important; position: relative; }
             #menu-btn { display: none !important; }
-            .sidebar-hidden { transform: translateX(0) !important; }
+        }
+        
+        @media (max-width: 768px) {
+            .kpi-card .flex { flex-direction: column; align-items: center; text-align: center; }
+            .data-table { font-size: 0.7rem; }
+            #menu-btn { display: flex !important; }
         }
     </style>
 </head>
@@ -191,8 +197,9 @@
         <main id="main-content" class="flex-1 overflow-y-auto bg-slate-50 transition-all duration-300 w-full">
             <div id="content-container" class="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-7 transition-all duration-300">
                 
-                <button id="menu-btn" onclick="toggleSidebar()" class="fixed top-4 left-4 z-30 bg-indigo-600 text-white p-2 rounded-xl shadow-md hover:bg-indigo-700 transition-all md:hidden">
-                    <i class="fa-solid fa-bars"></i>
+                <!-- BOUTON MENU (3 TRAITS) - CORRIGÉ -->
+                <button id="menu-btn" onclick="toggleSidebar()" class="fixed top-4 left-4 z-50 bg-indigo-600 text-white p-2 rounded-xl shadow-md hover:bg-indigo-700 transition-all md:hidden">
+                    <i class="fa-solid fa-bars text-lg"></i>
                 </button>
 
                 <!-- BANNIÈRE -->
@@ -277,7 +284,7 @@
                 </div>
                 
                 <!-- CHAT -->
-                <div class="bg-white rounded-2xl shadow-md border border-slate-100 flex flex-col h-[500px] md:h-[550px] overflow-hidden hover-scale transition-all">
+                <div id="chat-section" class="bg-white rounded-2xl shadow-md border border-slate-100 flex flex-col h-[500px] md:h-[550px] overflow-hidden hover-scale transition-all">
                     <div class="px-4 md:px-5 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-2">
                         <div class="flex items-center gap-2 md:gap-3">
                             <div class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
@@ -360,6 +367,16 @@
             sidebarVisible = false;
         }
         
+        // ========== DÉFILEMENT VERS LE CHAT ==========
+        function scrollToChat() {
+            const chatSection = document.getElementById('chat-section');
+            if (chatSection) {
+                setTimeout(() => {
+                    chatSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }, 200);
+            }
+        }
+        
         // ========== AUTH ==========
         function checkAuth() {
             const savedUser = localStorage.getItem('transpobot_user');
@@ -383,20 +400,9 @@
         }
         
         function logout() { 
-    // Supprimer toutes les données utilisateur
-    localStorage.removeItem('transpobot_user');
-    localStorage.removeItem('transpobot_conversations');
-    
-    // Rediriger vers login.html
-    window.location.href = '/login';
-    window.location.replace('/login'); // Alternative plus forte
-}
-
-function confirmLogout() {
-    if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
-        logout();
-    }
-}
+            localStorage.removeItem('transpobot_user'); 
+            window.location.href = '/login'; 
+        }
         
         function confirmLogout() {
             if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
@@ -456,6 +462,7 @@ function confirmLogout() {
             renderConversationsList(); 
             loadConversation(conversations[0].id);
             closeSidebar();
+            scrollToChat();
         }
         
         function deleteConversation(id) {
@@ -480,6 +487,7 @@ function confirmLogout() {
             });
             chatBox.scrollTop = chatBox.scrollHeight;
             renderConversationsList();
+            scrollToChat();
         }
         
         function addMessageToConversation(convId, message) {
@@ -502,7 +510,7 @@ function confirmLogout() {
             const headers = Object.keys(data[0]);
             let html = '<div class="overflow-x-auto my-3"><table class="data-table"><thead><tr>';
             headers.forEach(h => html += `<th>${h.toUpperCase().replace(/_/g, ' ')}</th>`);
-            html += ' hilab</thead><tbody>';
+            html += '</table></thead><tbody>';
             data.forEach(row => {
                 html += '<tr>';
                 headers.forEach(h => {
@@ -536,9 +544,11 @@ function confirmLogout() {
         
         function removeTyping(id) { const el = document.getElementById(id); if (el) el.remove(); }
         
+        // ========== SEND QUICK QUESTION AVEC DÉFILEMENT ==========
         async function sendQuickQuestion(q) { 
             document.getElementById('user-input').value = q; 
-            sendMessage(); 
+            await sendMessage(); 
+            scrollToChat();  // Défile vers le chat après l'envoi
         }
         
         async function sendMessage() {
@@ -559,10 +569,12 @@ function confirmLogout() {
                 const results = data.results;
                 addMessageToConversation(currentConversationId, { type: 'bot', content: natural, tableHtml: (results && results.length) ? generateTable(results) : '', sqlHtml: generateSQLBlock(sql), timestamp: new Date().toISOString() });
                 loadConversation(currentConversationId);
+                scrollToChat();  // Défile vers le chat après la réponse
             } catch(e) {
                 removeTyping(typingId);
                 addMessageToConversation(currentConversationId, { type: 'bot', content: `⚠️ Erreur: ${e.message}`, timestamp: new Date().toISOString() });
                 loadConversation(currentConversationId);
+                scrollToChat();
             }
         }
         
