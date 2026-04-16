@@ -1,6 +1,12 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
-    { "source": "/login", "destination": "/login.html" }
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/dashboard/(.*)", "destination": "/api/index.py" },
+    { "source": "/chat", "destination": "/api/index.py" },
+    { "source": "/vehicules", "destination": "/api/index.py" },
+    { "source": "/chauffeurs", "destination": "/api/index.py" },
+    { "source": "/lignes", "destination": "/api/index.py" },
+    { "source": "/trajets", "destination": "/api/index.py" }
   ]
 }

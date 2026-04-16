@@ -1,10 +1,10 @@
 """
 TranspoBot - Version PostgreSQL avec IA intelligente (GROQ)
-Fonctionnalités conservées :
-- Traitement des questions multi-jours (lundi ET mardi, samedi ET dimanche)
-- Détection automatique des jours dans les questions
-- Fallback intelligent avec GROQ
-- Compatible Aiven/PostgreSQL
+Fonctionnalités :
+- IA qui répond intelligemment (y compris aux salutations)
+- Traitement des questions multi-jours
+- Fallback avec GROQ pour les questions complexes
+- Compatible Vercel + Aiven PostgreSQL
 """
 
 from fastapi import FastAPI
@@ -212,7 +212,8 @@ def traiter_jours_multiple(question: str):
                         WHEN EXTRACT(DOW FROM date_heure_depart) = {jours_index[0]} THEN '{jours_noms[0].capitalize()}'
                         WHEN EXTRACT(DOW FROM date_heure_depart) = {jours_index[1]} THEN '{jours_noms[1].capitalize()}'
                     END as jour,
-                    COUNT(*) as nb_trajets
+                    COUNT(*) as nb_trajets,
+                    COALESCE(SUM(recette),0) as total_recettes
                 FROM trajets
                 WHERE EXTRACT(DOW FROM date_heure_depart) IN ({jours_index[0]}, {jours_index[1]})
                 GROUP BY jour
@@ -226,54 +227,53 @@ def traiter_jours_multiple(question: str):
             if "incident" in q:
                 natural = f"📊 Nombre de trajets et incidents les {jours_noms[0]} et {jours_noms[1]} :"
             else:
-                natural = f"📊 Nombre de trajets les {jours_noms[0]} et {jours_noms[1]} :"
+                natural = f"📊 Nombre de trajets et recettes les {jours_noms[0]} et {jours_noms[1]} :"
             return natural, results
     return None, None
 
 
-# PROMPT SYSTÈME
-SYSTEM_PROMPT = """
-Tu es un expert SQL PostgreSQL. Voici le SCHEMA EXACT:
+# PROMPT SYSTÈME (version intelligente)
+SYSTEM_PROMPT = """Tu es un assistant IA convivial et intelligent pour la gestion de transport.
 
+RÈGLES IMPORTANTES:
+1. Si l'utilisateur te dit "bonjour", "salut", "coucou", répond de façon chaleureuse et propose ton aide.
+2. Si l'utilisateur te remercie, répond avec politesse.
+3. Pour les questions sur les données, génère la requête SQL PostgreSQL.
+4. Sois naturel, pas trop technique. Utilise des émojis.
+
+SCHEMA BASE DE DONNÉES:
 chauffeurs: id, nom, prenom, telephone, statut
 vehicules: id, immatriculation, marque, modele, statut, kilometrage
 trajets: id, vehicule_id, chauffeur_id, ligne_id, date_heure_depart, nb_passagers, recette, statut
 incidents: id, trajet_id, type_incident, description, date_incident, gravite, resolu
 lignes: id, code_ligne, nom, point_depart, point_arrivee, distance_km
 
-VALEURS EXACTES:
+VALEURS:
 - statut vehicules: 'actif', 'en_maintenance', 'hors_service'
 - statut chauffeurs: 'actif', 'en_conge', 'suspendu'
 - statut trajets: 'planifie', 'en_cours', 'termine', 'annule'
-- resolu: 0=non résolu, 1=résolu
 
-FONCTIONS IMPORTANTES:
-- EXTRACT(DOW FROM date) pour le jour de la semaine (lundi=0, mardi=1, ..., dimanche=6)
-- EXTRACT(MONTH FROM date) pour le mois
-- EXTRACT(YEAR FROM date) pour l'année
-- CURRENT_TIMESTAMP pour la date/heure actuelle
+FONCTIONS:
+- EXTRACT(DOW FROM date) pour jour (lundi=0, mardi=1, ..., dimanche=6)
+- EXTRACT(MONTH FROM date) pour mois
+- EXTRACT(YEAR FROM date) pour année
+- CURRENT_TIMESTAMP pour date actuelle
 
-EXEMPLES:
-Question: "chiffre d'affaires du mois"
-SQL: SELECT COALESCE(SUM(recette),0) as total FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) AND statut='termine'
-
-Question: "nombre de trajets le lundi"
-SQL: SELECT COUNT(*) as total FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart)=0
-
-Question: "quel chauffeur a le plus d'incidents"
-SQL: SELECT c.nom, c.prenom, COUNT(i.id) as nb_incidents FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id GROUP BY c.id ORDER BY nb_incidents DESC LIMIT 1
-
-Question: "Véhicules en maintenance"
-SQL: SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut='en_maintenance'
-
-Question: "Liste des chauffeurs"
-SQL: SELECT nom, prenom, telephone FROM chauffeurs
+EXEMPLES DE RÉPONSES:
 
 Question: "bonjour"
-SQL: null
-natural: "👋 Bonjour ! Je suis TranspoBot. Posez vos questions sur les données de transport."
+{"sql": null, "natural": "👋 Bonjour ! Comment puis-je vous aider aujourd'hui ? Je peux vous donner des informations sur vos véhicules, chauffeurs, trajets, recettes ou incidents."}
 
-Réponds UNIQUEMENT au format JSON: {"sql": "requete", "natural": "reponse"}
+Question: "merci"
+{"sql": null, "natural": "😊 Avec plaisir ! N'hésitez pas si vous avez d'autres questions sur votre flotte de transport."}
+
+Question: "chiffre d'affaires du mois"
+{"sql": "SELECT COALESCE(SUM(recette),0) as total FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) AND statut='termine'", "natural": "💰 Voici le chiffre d'affaires du mois :"}
+
+Question: "Véhicules en maintenance"
+{"sql": "SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut='en_maintenance'", "natural": "🔧 Voici les véhicules actuellement en maintenance :"}
+
+Réponds UNIQUEMENT au format JSON. Pour les salutations et remerciements, mets "sql": null.
 """
 
 
@@ -284,7 +284,7 @@ def chat(request: ChatRequest):
     
     print(f"📨 Question reçue: {question}")
     
-    # ========== TRAITEMENT DES JOURS MULTIPLES (intelligent) ==========
+    # ========== TRAITEMENT DES JOURS MULTIPLES ==========
     natural_multi, results_multi = traiter_jours_multiple(question)
     if natural_multi and results_multi:
         return {
@@ -345,7 +345,7 @@ def chat(request: ChatRequest):
             cursor.execute("SELECT nom, prenom, telephone, statut FROM chauffeurs")
             rows = cursor.fetchall()
             return {
-                "natural_response": "👨‍✈️ Liste des chauffeurs :",
+                "natural_response": "👨‍✈️ Voici la liste des chauffeurs :",
                 "sql": "SELECT nom, prenom, telephone, statut FROM chauffeurs",
                 "results": rows
             }
@@ -362,7 +362,7 @@ def chat(request: ChatRequest):
             cursor.execute("SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut = 'actif'")
             rows = cursor.fetchall()
             return {
-                "natural_response": "🚍 Véhicules actifs :",
+                "natural_response": "🚍 Véhicules actifs actuellement :",
                 "sql": "SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut = 'actif'",
                 "results": rows
             }
@@ -379,7 +379,7 @@ def chat(request: ChatRequest):
             cursor.execute("SELECT code_ligne, nom, point_depart, point_arrivee, distance_km FROM lignes")
             rows = cursor.fetchall()
             return {
-                "natural_response": "🚏 Liste des lignes :",
+                "natural_response": "🚏 Voici les lignes de transport :",
                 "sql": "SELECT code_ligne, nom, point_depart, point_arrivee, distance_km FROM lignes",
                 "results": rows
             }
@@ -409,7 +409,7 @@ def chat(request: ChatRequest):
                     "sql": "SELECT c.nom, c.prenom, COUNT(i.id) as nb_incidents FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id GROUP BY c.id ORDER BY nb_incidents DESC LIMIT 1",
                     "results": [row]
                 }
-            return {"natural_response": "Aucun incident trouvé", "sql": None, "results": []}
+            return {"natural_response": "Aucun incident trouvé dans la base.", "sql": None, "results": []}
         finally:
             cursor.close()
             conn.close()
@@ -431,7 +431,7 @@ def chat(request: ChatRequest):
             """)
             results = cursor.fetchall()
             return {
-                "natural_response": "💰 Recettes et trajets par chauffeur :",
+                "natural_response": "💰 Voici les recettes et trajets par chauffeur :",
                 "sql": "SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, COALESCE(SUM(t.recette),0) as total_recettes, COUNT(t.id) as nb_trajets FROM chauffeurs c LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine' GROUP BY c.id ORDER BY total_recettes DESC",
                 "results": results
             }
@@ -482,26 +482,16 @@ def chat(request: ChatRequest):
                 cursor.close()
                 conn.close()
     
-    # 10. Salutations
-    salutations = ["bonjour", "salut", "coucou", "hello", "hi", "hey"]
-    for mot in salutations:
-        if mot in q:
-            return {
-                "natural_response": "👋 Bonjour ! Je suis TranspoBot, votre assistant IA pour la gestion de transport.\n\nPosez-moi vos questions sur :\n• Les véhicules (actifs, en maintenance)\n• Les chauffeurs\n• Les trajets et recettes\n• Les incidents\n• Les lignes",
-                "sql": None,
-                "results": []
-            }
-    
     # ========== GROQ POUR LES AUTRES QUESTIONS (IA INTELLIGENTE) ==========
     if client is None:
-        return {"natural_response": "❌ IA non configurée. Veuillez ajouter GROQ_API_KEY.", "sql": None, "results": []}
+        return {"natural_response": "❌ L'IA n'est pas configurée. Veuillez ajouter GROQ_API_KEY dans les variables d'environnement.", "sql": None, "results": []}
     
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": question}],
-            temperature=0.1,
-            max_tokens=800
+            temperature=0.7,
+            max_tokens=500
         )
         response_text = response.choices[0].message.content
         print(f"🤖 Groq répond: {response_text[:200]}")
@@ -517,19 +507,16 @@ def chat(request: ChatRequest):
                 sql = data.get("sql", "").strip()
                 natural = data.get("natural", "").strip()
                 
-                # Vérifier que ce n'est pas une fausse requête
-                if sql and "SELECT '" in sql.upper() and "FROM" not in sql.upper():
-                    return {
-                        "natural_response": "Je ne peux pas répondre à cette question. Posez-moi une question sur vos données de transport.",
-                        "sql": None,
-                        "results": []
-                    }
+                # Si c'est une réponse sans SQL (salutation, remerciement)
+                if sql is None or sql == "" or sql == "null":
+                    return {"natural_response": natural, "sql": None, "results": []}
                 
-                if sql:
+                # Vérifier que c'est une vraie requête
+                if sql and "SELECT" in sql.upper():
                     results, error = execute_sql(sql)
                     if error:
-                        return {"natural_response": f"❌ Erreur SQL: {error}", "sql": sql, "results": []}
-                    return {"natural_response": natural if natural else "Voici les résultats:", "sql": sql, "results": results}
+                        return {"natural_response": f"❌ Désolé, une erreur s'est produite : {error}", "sql": sql, "results": []}
+                    return {"natural_response": natural if natural else "Voici les résultats :", "sql": sql, "results": results}
                 else:
                     return {"natural_response": natural, "sql": None, "results": []}
             except json.JSONDecodeError as e:
@@ -540,7 +527,7 @@ def chat(request: ChatRequest):
         
     except Exception as e:
         print(f"❌ Erreur GROQ: {e}")
-        return {"natural_response": f"❌ Erreur IA: {str(e)}", "sql": None, "results": []}
+        return {"natural_response": f"❌ Désolé, je n'ai pas pu traiter votre demande. Erreur: {str(e)}", "sql": None, "results": []}
 
 
 # ============ ENDPOINTS ============

@@ -1,7 +1,11 @@
+#fastapi
+#uvicorn
+#mysql-connector-python
+python-dotenv
+#groq
+#psycopg2-binary
+
 fastapi
 uvicorn
-mysql-connector-python
-python-dotenv
-#google-generativeai  # À AJOUTER pour l'IA Gemini
-groq
 psycopg2-binary
+groq
