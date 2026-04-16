@@ -40,9 +40,15 @@ else:
     print("❌ GROQ_API_KEY non trouvée")
 
 def get_db():
+    # Récupère l'URL complète de Render, sinon utilise les paramètres locaux par défaut
+    db_url = os.getenv("DATABASE_URL")
+    if db_url:
+        return psycopg2.connect(db_url)
+    
+    # Configuration de secours pour le local
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", 5432)),
+        port=os.getenv("DB_PORT", 5432),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "transpobot")
