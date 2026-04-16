@@ -24,6 +24,89 @@
     flex-direction: column;
 }
 
+/* Remplacer les styles SQL existants par ceux-ci */
+.sql-container {
+    background: #0a0e27;
+    border-radius: 12px;
+    margin-top: 12px;
+    border: 1px solid #2d2d6b;
+    overflow: hidden;
+}
+
+.sql-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #1a1a3e;
+    border-bottom: 1px solid #2d2d6b;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.sql-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #7dd3fc;
+}
+
+.copy-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 9px;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.copy-btn:active { 
+    background: #4f46e5; 
+    color: white; 
+}
+
+.sql-content {
+    padding: 12px;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    overflow-x: auto;
+    background: #0a0e27;
+}
+
+.sql-content code {
+    font-size: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #e2e8f0; /* Couleur de base plus claire */
+}
+
+/* Styles pour la coloration syntaxique SQL avec couleurs claires */
+.sql-content .sql-keyword {
+    color: #c084fc !important;  /* Violet clair pour les mots-clés */
+    font-weight: 600;
+}
+
+.sql-content .sql-table {
+    color: #6ee7b7 !important;  /* Vert clair pour les noms de tables */
+    font-weight: 500;
+}
+
+.sql-content .sql-string {
+    color: #fde047 !important;  /* Jaune clair pour les chaînes */
+}
+
+.sql-content .sql-number {
+    color: #67e8f9 !important;  /* Cyan clair pour les nombres */
+}
+
 /* Le conteneur de la sidebar doit prendre toute la hauteur */
 aside {
     min-height: 100vh;
