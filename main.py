@@ -39,6 +39,7 @@ if GROQ_API_KEY:
 else:
     print("❌ GROQ_API_KEY non trouvée")
 
+
 def get_db():
     # Récupère l'URL complète de Render, sinon utilise les paramètres locaux par défaut
     db_url = os.getenv("DATABASE_URL")
