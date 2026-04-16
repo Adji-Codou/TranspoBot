@@ -104,6 +104,7 @@ def get_kpis():
 
 # ============ GRAPHIQUE ============
 
+
 @app.get("/dashboard/trajets-chart")
 def get_trajets_chart():
     conn = get_db()
