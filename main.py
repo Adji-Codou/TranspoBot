@@ -140,6 +140,9 @@ class ChatRequest(BaseModel):
 
 
 def execute_sql(sql: str):
+    if not sql or not isinstance(sql, str):
+        return None, "SQL invalide"
+    
     sql_clean = re.sub(r'```sql\n?|```\n?', '', sql.strip())
     sql_clean = sql_clean.replace('\n', ' ').replace('\r', ' ')
     sql_clean = ' '.join(sql_clean.split())
@@ -284,6 +287,26 @@ def chat(request: ChatRequest):
     
     print(f"📨 Question reçue: {question}")
     
+    # ========== TRAITEMENT DES SALUTATIONS (EN PRIORITÉ ABSOLUE) ==========
+    salutations = ["bonjour", "salut", "coucou", "hello", "hi", "hey", "bonsoir"]
+    for mot in salutations:
+        if q == mot or q.startswith(mot):
+            return {
+                "natural_response": "👋 Bonjour ! Je suis TranspoBot, votre assistant IA pour la gestion de transport.\n\nPosez-moi vos questions sur :\n• Les véhicules (actifs, en maintenance)\n• Les chauffeurs\n• Les trajets et recettes\n• Les incidents\n• Les lignes",
+                "sql": None,
+                "results": []
+            }
+    
+    # ========== TRAITEMENT DES REMERCIEMENTS ==========
+    remerciements = ["merci", "thanks", "bravo", "merci beaucoup"]
+    for mot in remerciements:
+        if mot in q:
+            return {
+                "natural_response": "😊 Avec plaisir ! N'hésitez pas si vous avez d'autres questions sur votre flotte de transport.",
+                "sql": None,
+                "results": []
+            }
+    
     # ========== TRAITEMENT DES JOURS MULTIPLES ==========
     natural_multi, results_multi = traiter_jours_multiple(question)
     if natural_multi and results_multi:
@@ -295,7 +318,24 @@ def chat(request: ChatRequest):
     
     # ========== TRAITEMENT DIRECT PRIORITAIRE ==========
     
-    # 1. Chiffre d'affaires
+    # 1. Nombre total de trajets
+    if "nombre" in q and "trajet" in q and ("total" in q or "de trajet" in q):
+        print("🔍 Traitement: Nombre total de trajets")
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("SELECT COUNT(id) as total FROM trajets")
+            row = cursor.fetchone()
+            return {
+                "natural_response": f"🚐 Nombre total de trajets : {row['total']}",
+                "sql": "SELECT COUNT(id) as total FROM trajets",
+                "results": [{"total": row['total']}]
+            }
+        finally:
+            cursor.close()
+            conn.close()
+    
+    # 2. Chiffre d'affaires
     if "chiffre d affaires" in q or "ca du mois" in q or "chiffre d'affaires" in q:
         print("🔍 Traitement: Chiffre d'affaires")
         conn = get_db()
@@ -318,13 +358,13 @@ def chat(request: ChatRequest):
             cursor.close()
             conn.close()
     
-    # 2. Véhicules en maintenance
+    # 3. Véhicules en maintenance
     if "vehicules en maintenance" in q or "véhicules en maintenance" in q or "maintenance" in q:
         print("🔍 Traitement: Véhicules en maintenance")
         conn = get_db()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         try:
-            cursor.execute("SELECT immatriculation, marque, modele, statut, kilometrage FROM vehicules WHERE statut = 'en_maintenance'")
+            cursor.execute("SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut = 'en_maintenance'")
             rows = cursor.fetchall()
             natural = "🔧 Véhicules en maintenance :" if rows else "✅ Aucun véhicule en maintenance"
             return {
@@ -336,7 +376,7 @@ def chat(request: ChatRequest):
             cursor.close()
             conn.close()
     
-    # 3. Liste des chauffeurs
+    # 4. Liste des chauffeurs
     if "liste des chauffeurs" in q or ("chauffeurs" in q and "liste" in q):
         print("🔍 Traitement: Liste des chauffeurs")
         conn = get_db()
@@ -345,7 +385,7 @@ def chat(request: ChatRequest):
             cursor.execute("SELECT nom, prenom, telephone, statut FROM chauffeurs")
             rows = cursor.fetchall()
             return {
-                "natural_response": "👨‍✈️ Voici la liste des chauffeurs :",
+                "natural_response": "👨‍✈️ Liste des chauffeurs :",
                 "sql": "SELECT nom, prenom, telephone, statut FROM chauffeurs",
                 "results": rows
             }
@@ -353,35 +393,26 @@ def chat(request: ChatRequest):
             cursor.close()
             conn.close()
     
-    # 4. Véhicules actifs
-    if "vehicules actifs" in q or "véhicules actifs" in q:
-        print("🔍 Traitement: Véhicules actifs")
+    # 5. Top 3 des chauffeurs par recette
+    if "top 3" in q and "chauffeur" in q:
+        print("🔍 Traitement: Top 3 chauffeurs")
         conn = get_db()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         try:
-            cursor.execute("SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut = 'actif'")
-            rows = cursor.fetchall()
+            cursor.execute("""
+                SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, 
+                       COALESCE(SUM(t.recette),0) as total_recettes
+                FROM chauffeurs c
+                LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine'
+                GROUP BY c.id, c.prenom, c.nom
+                ORDER BY total_recettes DESC
+                LIMIT 3
+            """)
+            results = cursor.fetchall()
             return {
-                "natural_response": "🚍 Véhicules actifs actuellement :",
-                "sql": "SELECT immatriculation, marque, modele, statut FROM vehicules WHERE statut = 'actif'",
-                "results": rows
-            }
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 5. Liste des lignes
-    if "liste des lignes" in q or ("lignes" in q and "liste" in q):
-        print("🔍 Traitement: Liste des lignes")
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("SELECT code_ligne, nom, point_depart, point_arrivee, distance_km FROM lignes")
-            rows = cursor.fetchall()
-            return {
-                "natural_response": "🚏 Voici les lignes de transport :",
-                "sql": "SELECT code_ligne, nom, point_depart, point_arrivee, distance_km FROM lignes",
-                "results": rows
+                "natural_response": "🏆 Top 3 des chauffeurs par recette :",
+                "sql": "SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, COALESCE(SUM(t.recette),0) as total_recettes FROM chauffeurs c LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine' GROUP BY c.id ORDER BY total_recettes DESC LIMIT 3",
+                "results": results
             }
         finally:
             cursor.close()
@@ -409,82 +440,14 @@ def chat(request: ChatRequest):
                     "sql": "SELECT c.nom, c.prenom, COUNT(i.id) as nb_incidents FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id GROUP BY c.id ORDER BY nb_incidents DESC LIMIT 1",
                     "results": [row]
                 }
-            return {"natural_response": "Aucun incident trouvé dans la base.", "sql": None, "results": []}
+            return {"natural_response": "Aucun incident trouvé.", "sql": None, "results": []}
         finally:
             cursor.close()
             conn.close()
     
-    # 7. Recettes et trajets par chauffeur
-    if "recettes et trajets par chauffeur" in q:
-        print("🔍 Traitement: Recettes par chauffeur")
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("""
-                SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, 
-                       COALESCE(SUM(t.recette),0) as total_recettes,
-                       COUNT(t.id) as nb_trajets
-                FROM chauffeurs c
-                LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine'
-                GROUP BY c.id, c.prenom, c.nom
-                ORDER BY total_recettes DESC
-            """)
-            results = cursor.fetchall()
-            return {
-                "natural_response": "💰 Voici les recettes et trajets par chauffeur :",
-                "sql": "SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, COALESCE(SUM(t.recette),0) as total_recettes, COUNT(t.id) as nb_trajets FROM chauffeurs c LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine' GROUP BY c.id ORDER BY total_recettes DESC",
-                "results": results
-            }
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 8. Top 3 des chauffeurs par recette
-    if "top 3" in q and "chauffeur" in q and "recette" in q:
-        print("🔍 Traitement: Top 3 chauffeurs")
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cursor.execute("""
-                SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, 
-                       COALESCE(SUM(t.recette),0) as total_recettes
-                FROM chauffeurs c
-                LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine'
-                GROUP BY c.id, c.prenom, c.nom
-                ORDER BY total_recettes DESC
-                LIMIT 3
-            """)
-            results = cursor.fetchall()
-            return {
-                "natural_response": "🏆 Top 3 des chauffeurs par recette :",
-                "sql": "SELECT CONCAT(c.prenom, ' ', c.nom) as chauffeur, COALESCE(SUM(t.recette),0) as total_recettes FROM chauffeurs c LEFT JOIN trajets t ON c.id = t.chauffeur_id AND t.statut='termine' GROUP BY c.id ORDER BY total_recettes DESC LIMIT 3",
-                "results": results
-            }
-        finally:
-            cursor.close()
-            conn.close()
-    
-    # 9. Nombre de trajets par jour (simple)
-    jours_simples = {"lundi":0, "mardi":1, "mercredi":2, "jeudi":3, "vendredi":4, "samedi":5, "dimanche":6}
-    for jour, index in jours_simples.items():
-        if jour in q and "nombre" in q and "trajet" in q and "et" not in q:
-            conn = get_db()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            try:
-                cursor.execute("SELECT COUNT(*) as total FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) = %s", (index,))
-                row = cursor.fetchone()
-                return {
-                    "natural_response": f"Il y a {row['total']} trajets le {jour}.",
-                    "sql": f"SELECT COUNT(*) FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) = {index}",
-                    "results": [{"total": row['total']}]
-                }
-            finally:
-                cursor.close()
-                conn.close()
-    
-    # ========== GROQ POUR LES AUTRES QUESTIONS (IA INTELLIGENTE) ==========
+    # ========== GROQ POUR LES AUTRES QUESTIONS ==========
     if client is None:
-        return {"natural_response": "❌ L'IA n'est pas configurée. Veuillez ajouter GROQ_API_KEY dans les variables d'environnement.", "sql": None, "results": []}
+        return {"natural_response": "❌ IA non configurée. GROQ_API_KEY manquante.", "sql": None, "results": []}
     
     try:
         response = client.chat.completions.create(
@@ -504,26 +467,31 @@ def chat(request: ChatRequest):
                 json_str = match.group()
                 json_str = json_str.replace('\n', ' ').replace('\r', ' ')
                 data = json.loads(json_str)
-                sql = data.get("sql", "").strip()
-                natural = data.get("natural", "").strip()
+                sql = data.get("sql")
+                natural = data.get("natural", "")
                 
-                # Si c'est une réponse sans SQL (salutation, remerciement)
-                if sql is None or sql == "" or sql == "null":
+                # Vérification : si sql est None ou null
+                if sql is None:
                     return {"natural_response": natural, "sql": None, "results": []}
                 
-                # Vérifier que c'est une vraie requête
-                if sql and "SELECT" in sql.upper():
-                    results, error = execute_sql(sql)
-                    if error:
-                        return {"natural_response": f"❌ Désolé, une erreur s'est produite : {error}", "sql": sql, "results": []}
-                    return {"natural_response": natural if natural else "Voici les résultats :", "sql": sql, "results": results}
-                else:
-                    return {"natural_response": natural, "sql": None, "results": []}
+                # Vérifier que sql est une chaîne valide
+                if isinstance(sql, str):
+                    sql = sql.strip()
+                    if sql == "" or sql == "null" or sql == "None":
+                        return {"natural_response": natural, "sql": None, "results": []}
+                    
+                    if "SELECT" in sql.upper():
+                        results, error = execute_sql(sql)
+                        if error:
+                            return {"natural_response": f"❌ Erreur: {error}", "sql": sql, "results": []}
+                        return {"natural_response": natural if natural else "Voici les résultats :", "sql": sql, "results": results}
+                
+                return {"natural_response": natural, "sql": None, "results": []}
             except json.JSONDecodeError as e:
                 print(f"Erreur JSON: {e}")
                 pass
         
-        return {"natural_response": response_text[:500], "sql": None, "results": []}
+        return {"natural_response": response_text[:300], "sql": None, "results": []}
         
     except Exception as e:
         print(f"❌ Erreur GROQ: {e}")

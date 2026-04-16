@@ -2,6 +2,7 @@
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     { "source": "/login", "destination": "/login.html" },
+    { "source": "/chat", "destination": "/chat.html" },
     { "source": "/dashboard/(.*)", "destination": "/api/index.py" },
     { "source": "/chat", "destination": "/api/index.py" },
     { "source": "/vehicules", "destination": "/api/index.py" },
