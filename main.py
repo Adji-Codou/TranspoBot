@@ -1,6 +1,5 @@
 """
-TranspoBot - Version PostgreSQL avec IA intelligente
-Adapté de ta version MySQL d'origine
+TranspoBot - Version Finale pour PostgreSQL (Render)
 """
 
 from fastapi import FastAPI
@@ -40,17 +39,18 @@ if GROQ_API_KEY:
 else:
     print("❌ GROQ_API_KEY non trouvée")
 
+
 def get_db():
-    # Priorité à DATABASE_URL pour Render
+    # Récupère l'URL complète de Render, sinon utilise les paramètres locaux par défaut
     db_url = os.getenv("DATABASE_URL")
     if db_url:
         return psycopg2.connect(db_url)
     
-    # Fallback local
+    # Configuration de secours pour le local
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
         port=int(os.getenv("DB_PORT", 5432)),
-        user=os.getenv("DB_USER", "postgres"),
+        user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "transpobot")
     )
@@ -72,12 +72,23 @@ def get_kpis():
     try:
         cursor.execute("SELECT COUNT(*) as vehicules_actifs FROM vehicules WHERE statut='actif'")
         v = cursor.fetchone()
-        cursor.execute("SELECT COALESCE(SUM(recette),0) as recettes_mois FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) AND EXTRACT(YEAR FROM date_heure_depart)=EXTRACT(YEAR FROM CURRENT_TIMESTAMP) AND statut='termine'")
+        
+        # ✅ CORRIGÉ: NOW() → CURRENT_TIMESTAMP
+        cursor.execute("""
+            SELECT COALESCE(SUM(recette),0) as recettes_mois 
+            FROM trajets 
+            WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) 
+            AND EXTRACT(YEAR FROM date_heure_depart)=EXTRACT(YEAR FROM CURRENT_TIMESTAMP) 
+            AND statut='termine'
+        """)
         r = cursor.fetchone()
+        
         cursor.execute("SELECT COUNT(*) as incidents_non_resolus FROM incidents WHERE resolu=0")
         i = cursor.fetchone()
+        
         cursor.execute("SELECT COUNT(*) as trajets_en_cours FROM trajets WHERE statut='en_cours'")
         t = cursor.fetchone()
+        
         return {
             "vehicules_actifs": v['vehicules_actifs'] if v else 0,
             "recettes_mois": float(r['recettes_mois']) if r else 0,
@@ -92,6 +103,7 @@ def get_kpis():
         conn.close()
 
 # ============ GRAPHIQUE ============
+
 @app.get("/dashboard/trajets-chart")
 def get_trajets_chart():
     conn = get_db()
@@ -152,54 +164,33 @@ def execute_sql(sql: str):
     except Exception as e:
         return None, str(e)
 
-# PROMPT SYSTÈME INTELLIGENT (inspiré de ton ancien)
+# PROMPT SYSTÈME
 SYSTEM_PROMPT = """
-Tu es un assistant IA spécialisé dans la gestion de transport. Tu dois être poli, amical et très intelligent.
-
-RÈGLES IMPORTANTES:
-1. Si l'utilisateur dit "bonjour", "salut", "coucou", "ça va", "comment ça va" : réponds chaleureusement
-2. Si l'utilisateur dit "merci", "bravo" : réponds avec plaisir
-3. Pour les questions sur les données : génère une requête SQL adaptée
-4. Pour les questions générales : réponds normalement sans SQL
-
-Voici le SCHEMA EXACT de la base de données PostgreSQL:
+Tu es un expert SQL. Voici le SCHEMA EXACT:
 
 trajets: id, date_heure_depart, recette, statut
 chauffeurs: id, nom, prenom, statut
 vehicules: id, immatriculation, marque, modele, statut
 incidents: id, trajet_id, type_incident, resolu
-lignes: id, code_ligne, nom, point_depart, point_arrivee
 
 VALEURS EXACTES:
 - statut vehicules: 'actif', 'en_maintenance', 'hors_service'
 - statut chauffeurs: 'actif', 'en_conge', 'suspendu'
 - statut trajets: 'planifie', 'en_cours', 'termine', 'annule'
-- resolu incidents: 0 = non résolu, 1 = résolu
 
-JOURS DE LA SEMAINE (DOW):
-- lundi = 0, mardi = 1, mercredi = 2, jeudi = 3, vendredi = 4, samedi = 5, dimanche = 6
-
-FONCTIONS POSTGRESQL À UTILISER:
-- EXTRACT(DOW FROM date_heure_depart) pour le jour de la semaine
-- EXTRACT(MONTH FROM date_heure_depart) pour le mois
-- EXTRACT(YEAR FROM date_heure_depart) pour l'année
-- CURRENT_TIMESTAMP pour la date/heure actuelle
-- COALESCE pour les valeurs NULL
+JOURS: lundi=0, mardi=1, mercredi=2, jeudi=3, vendredi=4, samedi=5, dimanche=6
 
 EXEMPLES:
 Question: "chiffre d'affaires du mois"
-SQL: SELECT COALESCE(SUM(recette),0) as total FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_TIMESTAMP) AND EXTRACT(YEAR FROM date_heure_depart)=EXTRACT(YEAR FROM CURRENT_TIMESTAMP) AND statut='termine'
+SQL: SELECT SUM(recette) FROM trajets WHERE EXTRACT(MONTH FROM date_heure_depart)=EXTRACT(MONTH FROM CURRENT_DATE) AND statut='termine'
 
 Question: "nombre de trajets le lundi"
-SQL: SELECT COUNT(*) as total FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart)=0
+SQL: SELECT COUNT(*) FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart)=0
 
 Question: "quel chauffeur a le plus d'incidents"
-SQL: SELECT c.nom, c.prenom, COUNT(i.id) as nb_incidents FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id GROUP BY c.id, c.nom, c.prenom ORDER BY nb_incidents DESC LIMIT 1
+SQL: SELECT c.nom, c.prenom, COUNT(i.id) as nb FROM chauffeurs c JOIN trajets t ON c.id=t.chauffeur_id JOIN incidents i ON t.id=i.trajet_id GROUP BY c.id ORDER BY nb DESC LIMIT 1
 
-Question: "bonjour"
-SQL: NE PAS METTRE DE SQL, juste répondre avec un message amical
-
-Réponds UNIQUEMENT au format JSON: {"sql": "requete_sql_ou_rien", "natural": "reponse_naturelle"}
+Réponds UNIQUEMENT au format JSON: {"sql": "requete", "natural": "reponse"}
 """
 
 @app.post("/chat")
@@ -208,13 +199,13 @@ def chat(request: ChatRequest):
     q = question.lower().strip()
     
     # ========== TRAITEMENT DES SALUTATIONS ==========
-    salutations = ["bonjour", "salut", "coucou", "hello", "hi", "hey", "ça va", "comment ça va", "bienvenue", "cava", "yo"]
-    remerciements = ["merci", "thanks", "thank you", "bravo", "merci beaucoup", "c'est gentil"]
+    salutations = ["bonjour", "salut", "coucou", "hello", "hi", "hey", "ça va", "comment ça va", "bienvenue"]
+    remerciements = ["merci", "thanks", "thank you", "bravo"]
     
     for mot in salutations:
         if mot in q:
             return {
-                "natural_response": "👋 Bonjour ! Je suis TranspoBot, votre assistant IA pour la gestion de transport.\n\n❓ Je peux répondre à toutes vos questions sur :\n• Les véhicules (actifs, en maintenance)\n• Les chauffeurs (performances, incidents)\n• Les trajets (nombre, recettes)\n• Les incidents\n• Les lignes\n\nPosez-moi votre question en langage naturel !",
+                "natural_response": "👋 Bonjour ! Je suis TranspoBot, votre assistant IA pour la gestion de transport.\n\n❓ Je peux répondre à des questions comme :\n• Combien de véhicules sont actifs ?\n• Quel est le chiffre d'affaires du mois ?\n• Liste des chauffeurs\n• Véhicules en maintenance\n• Chauffeur avec le plus d'incidents\n\nPosez-moi votre question !",
                 "sql": None,
                 "results": []
             }
@@ -222,7 +213,7 @@ def chat(request: ChatRequest):
     for mot in remerciements:
         if mot in q:
             return {
-                "natural_response": "🤖 Avec plaisir ! Je reste à votre disposition pour toute question sur vos données de transport.",
+                "natural_response": "🤖 Avec plaisir ! N'hésitez pas si vous avez d'autres questions sur vos données de transport.",
                 "sql": None,
                 "results": []
             }
@@ -268,39 +259,23 @@ def chat(request: ChatRequest):
             cursor.close()
             conn.close()
     
-    # 3. Lundi et mardi (avec ou sans incidents)
+    # 3. Lundi et mardi
     if "lundi et mardi" in q or "mardi et lundi" in q:
         conn = get_db()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         try:
-            if "incident" in q:
-                cursor.execute("""
-                    SELECT 
-                        CASE WHEN EXTRACT(DOW FROM t.date_heure_depart)=0 THEN 'Lundi' 
-                             WHEN EXTRACT(DOW FROM t.date_heure_depart)=1 THEN 'Mardi' END as jour,
-                        COUNT(DISTINCT t.id) as nb_trajets,
-                        COUNT(i.id) as nb_incidents
-                    FROM trajets t
-                    LEFT JOIN incidents i ON t.id = i.trajet_id
-                    WHERE EXTRACT(DOW FROM t.date_heure_depart) IN (0,1)
-                    GROUP BY jour
-                """)
-                natural = "📊 Nombre de trajets et incidents le lundi et mardi :"
-            else:
-                cursor.execute("""
-                    SELECT 
-                        CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' 
-                             WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour,
-                        COUNT(*) as nb_trajets
-                    FROM trajets
-                    WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1)
-                    GROUP BY jour
-                """)
-                natural = "📊 Nombre de trajets le lundi et mardi :"
-            
+            cursor.execute("""
+                SELECT 
+                    CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' 
+                         WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour,
+                    COUNT(*) as nb_trajets
+                FROM trajets
+                WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1)
+                GROUP BY jour
+            """)
             results = cursor.fetchall()
             return {
-                "natural_response": natural,
+                "natural_response": "📊 Nombre de trajets le lundi et mardi :",
                 "sql": "SELECT CASE WHEN EXTRACT(DOW FROM date_heure_depart)=0 THEN 'Lundi' WHEN EXTRACT(DOW FROM date_heure_depart)=1 THEN 'Mardi' END as jour, COUNT(*) as nb_trajets FROM trajets WHERE EXTRACT(DOW FROM date_heure_depart) IN (0,1) GROUP BY jour",
                 "results": results
             }
